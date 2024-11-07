@@ -1,6 +1,7 @@
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtCore import Qt
 from OpenGL.GL import *
+import math
 
 import common
 
@@ -9,12 +10,16 @@ from tetrahedron import tetrahedron
 from cube import cube
 from file_ply import read_ply, PLYObject
 from object3d import object3D
+from cone import cone
+from cylinder import cylinder
+from sphere import sphere
+from file_ply import RevolutionObject
 
 X_MIN = -.1
 X_MAX = .1
 Y_MIN = -.1
 Y_MAX = .1
-FRONT_PLANE_PERSPECTIVE = (X_MAX-X_MIN)/2
+FRONT_PLANE_PERSPECTIVE = (X_MAX - X_MIN) / 2
 BACK_PLANE_PERSPECTIVE = 1000
 DEFAULT_DISTANCE = 2
 ANGLE_STEP = 1
@@ -22,7 +27,10 @@ DISTANCE_FACTOR = 1.1
 
 OBJECT_TETRAHEDRON = 0
 OBJECT_CUBE = 1
-OBJECT_PLY = 2
+OBJECT_CONE = 2
+OBJECT_CYLINDER = 3
+OBJECT_SPHERE = 4
+OBJECT_PLY = 5
 
 class gl_widget(QOpenGLWidget):
     def __init__(self, parent=None):
@@ -42,7 +50,6 @@ class gl_widget(QOpenGLWidget):
         self.object = OBJECT_TETRAHEDRON
         self.ply_object = None
 
-        # importante para capturar los eventos
         self.setFocusPolicy(Qt.StrongFocus)
 
     def keyPressEvent(self, event):
@@ -50,8 +57,14 @@ class gl_widget(QOpenGLWidget):
             self.object = OBJECT_TETRAHEDRON
         elif event.key() == Qt.Key.Key_2:
             self.object = OBJECT_CUBE
-        elif event.key() == Qt.Key.Key_3 and self.ply_object is not None:
+        elif event.key() == Qt.Key.Key_6 and self.ply_object is not None:
             self.object = OBJECT_PLY
+        elif event.key() == Qt.Key.Key_3:
+            self.object = OBJECT_CONE
+        elif event.key() == Qt.Key.Key_4:
+            self.object = OBJECT_CYLINDER
+        elif event.key() == Qt.Key.Key_5:
+            self.object = OBJECT_SPHERE
 
         if event.key() == Qt.Key.Key_P:
             self.draw_point = not self.draw_point
@@ -114,6 +127,12 @@ class gl_widget(QOpenGLWidget):
                 self.cube.draw_point()
             elif self.object == OBJECT_PLY and self.ply_object:
                 self.ply_object.draw_point()
+            elif self.object == OBJECT_CONE:
+                self.cone.draw_point()
+            elif self.object == OBJECT_CYLINDER:
+                self.cylinder.draw_point()
+            elif self.object == OBJECT_SPHERE:
+                self.sphere.draw_point()
 
         if self.draw_line:
             glLineWidth(3)
@@ -124,6 +143,12 @@ class gl_widget(QOpenGLWidget):
                 self.cube.draw_line()
             elif self.object == OBJECT_PLY and self.ply_object:
                 self.ply_object.draw_line()
+            elif self.object == OBJECT_CONE:
+                self.cone.draw_line()
+            elif self.object == OBJECT_CYLINDER:
+                self.cylinder.draw_line()
+            elif self.object == OBJECT_SPHERE:
+                self.sphere.draw_line()
 
         if self.draw_fill:
             glColor3fv(common.BLUE)
@@ -133,6 +158,12 @@ class gl_widget(QOpenGLWidget):
                 self.cube.draw_fill()
             elif self.object == OBJECT_PLY and self.ply_object:
                 self.ply_object.draw_fill()
+            elif self.object == OBJECT_CONE:
+                self.cone.draw_fill()
+            elif self.object == OBJECT_CYLINDER:
+                self.cylinder.draw_fill()
+            elif self.object == OBJECT_SPHERE:
+                self.sphere.draw_fill()
 
         if self.draw_chess:
             if self.object == OBJECT_TETRAHEDRON:
@@ -141,6 +172,12 @@ class gl_widget(QOpenGLWidget):
                 self.cube.draw_chess()
             elif self.object == OBJECT_PLY and self.ply_object:
                 self.ply_object.draw_chess()
+            elif self.object == OBJECT_CONE:
+                self.cone.draw_chess()
+            elif self.object == OBJECT_CYLINDER:
+                self.cylinder.draw_chess()
+            elif self.object == OBJECT_SPHERE:
+                self.sphere.draw_chess()
 
     def load_ply(self, file_name):
         self.ply_object = PLYObject(file_name)
@@ -163,3 +200,21 @@ class gl_widget(QOpenGLWidget):
         self.axis = axis()
         self.tetrahedron = tetrahedron()
         self.cube = cube()
+        self.cone = cone()
+        self.cylinder = cylinder()
+        self.sphere = sphere()
+
+    def load_ply_as_revolution(self, file_name):
+        profile_points = self.read_ply_profile(file_name)  # Zmiana: użycie metody do wczytywania profilu
+        self.object = RevolutionObject(profile_points)
+        self.update()
+
+    def read_ply_profile(self, file_name):
+        """
+        Odczytuje punkty profilu z pliku PLY, które będą użyte do wygenerowania obiektu rewolucji.
+        Zwraca listę punktów (x, y) tworzących profil obiektu rewolucji.
+        """
+        vertices, _ = read_ply(file_name)  # Odczyt wierzchołków z pliku PLY
+        # Załóżmy, że interesuje nas tylko pierwszy "profil", czyli punkty (x, y) z osi Z=0
+        profile_points = [(v[0], v[1]) for v in vertices if v[2] == 0]
+        return profile_points

@@ -18,7 +18,10 @@ if __name__ == '__main__':
     C - wyświetl trójkąty (chess view)
     1 - renderuj ostrosłup
     2 - renderuj sześcian
-    3 - renderuj PLY
+    3 - renderuj stożek
+    4 - renderuj cylinder
+    5 - renderuj sferę
+    6 - renderuj wczytany obiekt PLY
     Strzałki - obrót w 3D widoku
     +/- - zoom
     WSAD - przesuwanie w 3D widoku

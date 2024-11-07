@@ -2,6 +2,7 @@ import sys
 from OpenGL.GL import *
 import common
 from object3d import object3D
+import math
 
 def read_ply(file_name):
     with open(file_name, mode='r', encoding='utf-8') as file:
@@ -67,35 +68,39 @@ class PLYObject(object3D):
         super().__init__()
         self.vertices, self.triangles = read_ply(file_name)
 
-    def draw_line(self):
-        glBegin(GL_LINES)
-        glColor3fv(common.CIAN)  # Możesz wybrać inny kolor
-        for triangle in self.triangles:
-            glVertex3fv(self.vertices[triangle[0]])
-            glVertex3fv(self.vertices[triangle[1]])
 
-            glVertex3fv(self.vertices[triangle[1]])
-            glVertex3fv(self.vertices[triangle[2]])
+class RevolutionObject(object3D):
+    def __init__(self, profile_points, num_segments=36):
+        super().__init__()
+        self.generate_revolution_object(profile_points, num_segments)
 
-            glVertex3fv(self.vertices[triangle[2]])
-            glVertex3fv(self.vertices[triangle[0]])
-        glEnd()
+    def generate_revolution_object(self, profile_points, num_segments):
+        angle_step = 2 * math.pi / num_segments
+        vertices = []
+        triangles = []
 
-    def draw_fill(self):
-        glBegin(GL_TRIANGLES)
-        glColor3fv(common.YELLOW)  # Kolor wypełnienia
-        for triangle in self.triangles:
-            glVertex3fv(self.vertices[triangle[0]])
-            glVertex3fv(self.vertices[triangle[1]])
-            glVertex3fv(self.vertices[triangle[2]])
-        glEnd()
+        # Tworzenie punktów przez obrót
+        for i in range(num_segments):
+            angle = i * angle_step
+            for x, y in profile_points:
+                new_x = x * math.cos(angle)
+                new_z = -x * math.sin(angle)
+                vertices.append((new_x, y, new_z))
 
-    def draw_chess(self):
-        glBegin(GL_TRIANGLES)
-        for i, triangle in enumerate(self.triangles):
-            color = common.RED if i % 2 == 0 else common.GREEN
-            glColor3fv(color)
-            glVertex3fv(self.vertices[triangle[0]])
-            glVertex3fv(self.vertices[triangle[1]])
-            glVertex3fv(self.vertices[triangle[2]])
-        glEnd()
+        # Tworzenie trójkątów
+        num_profile_points = len(profile_points)
+        for i in range(num_segments):
+            for j in range(num_profile_points - 1):
+                p1 = i * num_profile_points + j
+                p2 = ((i + 1) % num_segments) * num_profile_points + j
+                p3 = p1 + 1
+                p4 = p2 + 1
+
+                # Dodaj trójkąty, jeśli nie są zdegenerowane
+                if p1 != p2 and p1 != p3 and p2 != p3:
+                    triangles.append((p1, p2, p3))
+                if p2 != p3 and p2 != p4 and p3 != p4:
+                    triangles.append((p2, p4, p3))
+
+        self.vertices = vertices
+        self.triangles = triangles

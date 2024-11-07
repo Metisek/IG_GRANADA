@@ -15,29 +15,3 @@ class tetrahedron(object3D):
         self.triangles.append((2, 0, 3))
         self.triangles.append((0, 2, 1))
 
-    def draw_line(self):
-        glBegin(GL_LINES)
-        for triangle in self.triangles:
-            for vertex_index in triangle:
-                glVertex3fv(self.vertices[vertex_index])
-        glEnd()
-
-    def draw_fill(self):
-        glBegin(GL_TRIANGLES)
-        for triangle in self.triangles:
-            for vertex_index in triangle:
-                glVertex3fv(self.vertices[vertex_index])
-        glEnd()
-
-    def draw_chess(self):
-        glBegin(GL_TRIANGLES)
-        for i, triangle in enumerate(self.triangles):
-            color = common.RED if i % 2 == 0 else common.GREEN
-            glColor3fv(color)
-            for vertex_index in triangle:
-                glVertex3fv(self.vertices[vertex_index])
-        glEnd()
-
-
-
-
