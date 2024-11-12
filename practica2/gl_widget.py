@@ -110,16 +110,26 @@ class gl_widget(QOpenGLWidget):
             self.arm1.angle_yaw -= self.angle_step
 
         # Main arm up/down
-        elif event.key() == Qt.Key_S:
+        if event.key() == Qt.Key_S:
             self.arm2.angle_pitch += self.angle_step
         elif event.key() == Qt.Key_D:
             self.arm2.angle_pitch -= self.angle_step
 
         # Secondary arm up/down
-        elif event.key() == Qt.Key_Z:
+        if event.key() == Qt.Key_Z:
             self.arm3.angle_pitch += self.angle_step
         elif event.key() == Qt.Key_X:
             self.arm3.angle_pitch -= self.angle_step
+
+        # Modify rotation speed
+        if event.key() == Qt.Key.Key_E:
+            self.angle_step += 0.2
+            if self.angle_step > 10:
+                self.angle_step = 10
+        elif event.key() == Qt.Key.Key_R:
+            self.angle_step -= 0.2
+            if self.angle_step < 0:
+                self.angle_step = 0
 
         self.update()
 

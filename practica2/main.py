@@ -28,6 +28,7 @@ if __name__ == '__main__':
     Q/W - ruch 1 osi swobody
     S/D - ruch 2 osi swobody
     Z/X - ruch 3 osi swobody
+    E/R - zmiana prędkości obrotu
     Strzałki - obrót kamery
     +/- zoom
 
