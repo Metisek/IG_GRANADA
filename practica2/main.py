@@ -24,7 +24,11 @@ if __name__ == '__main__':
     5 - renderuj sferę
     6 - renderuj wczytany obiekt PLY
     7 - renderuj model hierarchiczny
-
-
+    A - animacja on
+    Q/W - ruch 1 osi swobody
+    S/D - ruch 2 osi swobody
+    Z/X - ruch 3 osi swobody
+    Strzałki - obrót kamery
+    +/- zoom
 
     """
