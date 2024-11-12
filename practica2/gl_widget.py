@@ -1,3 +1,4 @@
+# gl_widget.py
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtCore import Qt
 from OpenGL.GL import *
@@ -13,7 +14,9 @@ from object3d import object3D
 from cone import cone
 from cylinder import cylinder
 from sphere import sphere
+from hierarchial_model import HierarchicalModel, Component
 from file_ply import RevolutionObject
+from PySide6.QtCore import QTimer
 
 X_MIN = -.1
 X_MAX = .1
@@ -31,6 +34,7 @@ OBJECT_CONE = 2
 OBJECT_CYLINDER = 3
 OBJECT_SPHERE = 4
 OBJECT_PLY = 5
+OBJECT_HIERARCHY = 6
 
 class gl_widget(QOpenGLWidget):
     def __init__(self, parent=None):
@@ -50,6 +54,10 @@ class gl_widget(QOpenGLWidget):
         self.object = OBJECT_TETRAHEDRON
         self.ply_object = None
 
+        self.angle_step = 1
+
+        self.animation_active = False
+
         self.setFocusPolicy(Qt.StrongFocus)
 
     def keyPressEvent(self, event):
@@ -65,6 +73,8 @@ class gl_widget(QOpenGLWidget):
             self.object = OBJECT_CYLINDER
         elif event.key() == Qt.Key.Key_5:
             self.object = OBJECT_SPHERE
+        elif event.key() == Qt.Key.Key_7:
+            self.object = OBJECT_HIERARCHY
 
         if event.key() == Qt.Key.Key_P:
             self.draw_point = not self.draw_point
@@ -88,17 +98,44 @@ class gl_widget(QOpenGLWidget):
         if event.key() == Qt.Key.Key_PageDown or event.key() == Qt.Key.Key_Minus:
             self.observer_distance *= DISTANCE_FACTOR
 
-        # WSAD for movement
-        if event.key() == Qt.Key.Key_W:
-            self.move_y -= 0.05
-        elif event.key() == Qt.Key.Key_S:
-            self.move_y += 0.05
-        elif event.key() == Qt.Key.Key_A:
-            self.move_x += 0.05
-        elif event.key() == Qt.Key.Key_D:
-            self.move_x -= 0.05
+        # Hierarchial model movement
+        if event.key() == Qt.Key.Key_A:
+            self.animation_active = not self.animation_active
+            if self.animation_active:
+                self.start_animation()
+        # Base rotation
+        if event.key() == Qt.Key_Q:
+            self.arm1.angle_yaw += self.angle_step
+        elif event.key() == Qt.Key_W:
+            self.arm1.angle_yaw -= self.angle_step
+
+        # Main arm up/down
+        elif event.key() == Qt.Key_S:
+            self.arm2.angle_pitch += self.angle_step
+        elif event.key() == Qt.Key_D:
+            self.arm2.angle_pitch -= self.angle_step
+
+        # Secondary arm up/down
+        elif event.key() == Qt.Key_Z:
+            self.arm3.angle_pitch += self.angle_step
+        elif event.key() == Qt.Key_X:
+            self.arm3.angle_pitch -= self.angle_step
 
         self.update()
+
+
+    def animate(self):
+        if self.animation_active:
+            self.arm1.angle_yaw += self.angle_step
+            self.update()
+        else:
+            self.timer.stop()
+
+    def start_animation(self):
+        if not hasattr(self, 'timer'):
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.animate)
+        self.timer.start(1000 // 60)
 
     def clear_window(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -133,6 +170,8 @@ class gl_widget(QOpenGLWidget):
                 self.cylinder.draw_point()
             elif self.object == OBJECT_SPHERE:
                 self.sphere.draw_point()
+            elif self.object == OBJECT_HIERARCHY:
+                self.model.draw(0)
 
         if self.draw_line:
             glLineWidth(3)
@@ -149,6 +188,8 @@ class gl_widget(QOpenGLWidget):
                 self.cylinder.draw_line()
             elif self.object == OBJECT_SPHERE:
                 self.sphere.draw_line()
+            elif self.object == OBJECT_HIERARCHY:
+                self.model.draw(1)
 
         if self.draw_fill:
             glColor3fv(common.BLUE)
@@ -164,6 +205,8 @@ class gl_widget(QOpenGLWidget):
                 self.cylinder.draw_fill()
             elif self.object == OBJECT_SPHERE:
                 self.sphere.draw_fill()
+            elif self.object == OBJECT_HIERARCHY:
+                self.model.draw(2)
 
         if self.draw_chess:
             if self.object == OBJECT_TETRAHEDRON:
@@ -178,6 +221,12 @@ class gl_widget(QOpenGLWidget):
                 self.cylinder.draw_chess()
             elif self.object == OBJECT_SPHERE:
                 self.sphere.draw_chess()
+            elif self.object == OBJECT_HIERARCHY:
+                self.model.draw(3)
+
+        if self.animation_active:
+            self.animate()
+
 
     def load_ply(self, file_name):
         self.ply_object = PLYObject(file_name)
@@ -204,6 +253,25 @@ class gl_widget(QOpenGLWidget):
         self.cylinder = cylinder()
         self.sphere = sphere()
 
+        self.base = Component(1.0, 0.6, 0.2, 0.6, origin_y=-0.1)  # Base rotates around Z-axis
+        self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
+        self.arm2 = Component(1.0, 0.25, 0.6, 0.25, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,80) ,origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
+        self.arm3 = Component(1.0, 0.2, 0.6, 0.2, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
+        self.gripper1 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
+        self.gripper2 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
+
+        # Set up hierarchy
+        self.base.children.append(self.arm1)
+        self.arm1.children.append(self.arm2)
+        self.arm2.children.append(self.arm3)
+        self.arm3.children.append(self.gripper1)
+        self.arm3.children.append(self.gripper2)
+        self.model = HierarchicalModel()
+        self.model.components.append(self.base)
+        self.model.components.append(self.base)
+
+
+
     def load_ply_as_revolution(self, file_name):
         profile_points = self.read_ply_profile(file_name)  # Zmiana: użycie metody do wczytywania profilu
         self.object = RevolutionObject(profile_points)
@@ -214,7 +282,6 @@ class gl_widget(QOpenGLWidget):
         Odczytuje punkty profilu z pliku PLY, które będą użyte do wygenerowania obiektu rewolucji.
         Zwraca listę punktów (x, y) tworzących profil obiektu rewolucji.
         """
-        vertices, _ = read_ply(file_name)  # Odczyt wierzchołków z pliku PLY
-        # Załóżmy, że interesuje nas tylko pierwszy "profil", czyli punkty (x, y) z osi Z=0
+        vertices, _ = read_ply(file_name)
         profile_points = [(v[0], v[1]) for v in vertices if v[2] == 0]
         return profile_points

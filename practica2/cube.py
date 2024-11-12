@@ -1,3 +1,4 @@
+# cube.py
 from object3d import object3D
 from OpenGL.GL import *
 import common

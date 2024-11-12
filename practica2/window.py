@@ -1,3 +1,4 @@
+# window.py
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QHBoxLayout, QFileDialog
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtGui import QAction

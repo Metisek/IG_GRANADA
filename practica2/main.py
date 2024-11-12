@@ -1,3 +1,4 @@
+# main.py
 import sys
 from PySide6.QtWidgets import QApplication
 
@@ -22,9 +23,8 @@ if __name__ == '__main__':
     4 - renderuj cylinder
     5 - renderuj sferę
     6 - renderuj wczytany obiekt PLY
-    Strzałki - obrót w 3D widoku
-    +/- - zoom
-    WSAD - przesuwanie w 3D widoku
+    7 - renderuj model hierarchiczny
+
 
 
     """
