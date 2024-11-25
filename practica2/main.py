@@ -11,25 +11,34 @@ if __name__ == '__main__':
     sys.exit(app.exec())
 
     """
-    Działanie aplikacji:
+    Application Controls:
 
-    P - wyświetl punkty
-    L - wyświetl linie
-    F - wyświetl ściany
-    C - wyświetl trójkąty (chess view)
-    1 - renderuj ostrosłup
-    2 - renderuj sześcian
-    3 - renderuj stożek
-    4 - renderuj cylinder
-    5 - renderuj sferę
-    6 - renderuj wczytany obiekt PLY
-    7 - renderuj model hierarchiczny
-    A - animacja on
-    Q/W - ruch 1 osi swobody
-    S/D - ruch 2 osi swobody
-    Z/X - ruch 3 osi swobody
-    E/R - zmiana prędkości obrotu
-    Strzałki - obrót kamery
-    +/- zoom
-
+    P - Display in points mode
+    L - Display in lines/edges mode
+    F - Display in fill mode
+    1 - Activate tetrahedron
+    2 - Activate cube
+    3 - Activate cone
+    4 - Activate cylinder
+    5 - Activate sphere
+    6 - Activate loaded PLY object
+    7 - Activate hierarchical object
+    8 - Activate chessboard
+    A - Activate/deactivate the animation
+    Q/W - Modify first degree of freedom of the hierarchical model (increase/decrease)
+    S/D - Modify second degree of freedom of the hierarchical model (increase/decrease)
+    Z/X - Modify third degree of freedom of the hierarchical model (increase/decrease)
+    E/R - Increase/decrease the rate of modification of the first degree of freedom of the hierarchical model
+    T/Y - Increase/decrease the rate of modification of the second degree of freedom of the hierarchical model
+    U/I - Increase/decrease the rate of modification of the third degree of freedom of the hierarchical model
+    F1 - Solid mode display
+    F2 - Display in chess mode
+    F3 - Display in flat shaded lighting mode
+    F4 - Gouraud shaded lighting mode display
+    F5 - Display in unlit texture mode
+    F6 - Display in texture mode with flat shaded lighting
+    F7 - Gouraud shaded lighting texture mode display
+    J - Activate/deactivate the first light
+    K - Activate/deactivate the second light
+    M - Consecutive selection between the three materials
     """

@@ -1,6 +1,7 @@
 # gl_widget.py
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QImage
 from OpenGL.GL import *
 import math
 
@@ -16,7 +17,8 @@ from cylinder import cylinder
 from sphere import sphere
 from hierarchial_model import HierarchicalModel, Component
 from file_ply import RevolutionObject
-from PySide6.QtCore import QTimer
+from chess_board import ChessBoard
+from texture_utils import load_texture
 
 X_MIN = -.1
 X_MAX = .1
@@ -35,6 +37,13 @@ OBJECT_CYLINDER = 3
 OBJECT_SPHERE = 4
 OBJECT_PLY = 5
 OBJECT_HIERARCHY = 6
+OBJECT_CHESSBOARD = 7
+
+FLAT_SHADING = 0
+GOURAUD_SHADING = 1
+TEXTURE_UNLIT = 2
+TEXTURE_FLAT = 3
+TEXTURE_GOURAUD = 4
 
 class gl_widget(QOpenGLWidget):
     def __init__(self, parent=None):
@@ -58,7 +67,19 @@ class gl_widget(QOpenGLWidget):
 
         self.animation_active = False
 
+        self.shading_mode = FLAT_SHADING
+        self.texture_mode = TEXTURE_UNLIT
+
+        self.light0_enabled = True
+        self.light1_enabled = True
+        self.material_index = 0
+
         self.setFocusPolicy(Qt.StrongFocus)
+
+        # Code to define the QTimer for the animation
+        self.timer = QTimer()
+        self.timer.setInterval(0)
+        self.timer.timeout.connect(self.animate)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_1:
@@ -75,6 +96,8 @@ class gl_widget(QOpenGLWidget):
             self.object = OBJECT_SPHERE
         elif event.key() == Qt.Key.Key_7:
             self.object = OBJECT_HIERARCHY
+        elif event.key() == Qt.Key.Key_8:
+            self.object = OBJECT_CHESSBOARD
 
         if event.key() == Qt.Key.Key_P:
             self.draw_point = not self.draw_point
@@ -131,8 +154,47 @@ class gl_widget(QOpenGLWidget):
             if self.angle_step < 0:
                 self.angle_step = 0
 
-        self.update()
+        # Modify rotation speed for second and third degrees of freedom
+        if event.key() == Qt.Key.Key_T:
+            self.arm2.angle_pitch += self.angle_step
+        elif event.key() == Qt.Key.Key_Y:
+            self.arm2.angle_pitch -= self.angle_step
+        if event.key() == Qt.Key.Key_U:
+            self.arm3.angle_pitch += self.angle_step
+        elif event.key() == Qt.Key.Key_I:
+            self.arm3.angle_pitch -= self.angle_step
 
+        # Shading and texture modes
+        if event.key() == Qt.Key.Key_F3:
+            self.shading_mode = FLAT_SHADING
+        elif event.key() == Qt.Key.Key_F4:
+            self.shading_mode = GOURAUD_SHADING
+        elif event.key() == Qt.Key.Key_F5:
+            self.texture_mode = TEXTURE_UNLIT
+        elif event.key() == Qt.Key.Key_F6:
+            self.texture_mode = TEXTURE_FLAT
+        elif event.key() == Qt.Key.Key_F7:
+            self.texture_mode = TEXTURE_GOURAUD
+
+        # Light control
+        if event.key() == Qt.Key.Key_J:
+            self.light0_enabled = not self.light0_enabled
+        elif event.key() == Qt.Key.Key_K:
+            self.light1_enabled = not self.light1_enabled
+
+        # Material selection
+        if event.key() == Qt.Key.Key_M:
+            self.material_index = (self.material_index + 1) % 3
+
+        # Display modes
+        if event.key() == Qt.Key.Key_F1:
+            self.draw_fill = True
+            self.draw_chess = False
+        elif event.key() == Qt.Key.Key_F2:
+            self.draw_fill = False
+            self.draw_chess = True
+
+        self.update()
 
     def animate(self):
         if self.animation_active:
@@ -142,10 +204,7 @@ class gl_widget(QOpenGLWidget):
             self.timer.stop()
 
     def start_animation(self):
-        if not hasattr(self, 'timer'):
-            self.timer = QTimer(self)
-            self.timer.timeout.connect(self.animate)
-        self.timer.start(1000 // 60)
+        self.timer.start()
 
     def clear_window(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -234,9 +293,11 @@ class gl_widget(QOpenGLWidget):
             elif self.object == OBJECT_HIERARCHY:
                 self.model.draw(3)
 
+        if self.object == OBJECT_CHESSBOARD:
+            self.chess_board.draw_texture()
+
         if self.animation_active:
             self.animate()
-
 
     def load_ply(self, file_name):
         self.ply_object = PLYObject(file_name)
@@ -247,6 +308,7 @@ class gl_widget(QOpenGLWidget):
         self.clear_window()
         self.change_projection()
         self.change_observer()
+        self.set_lighting()
         self.draw_objects()
 
     def resizeGL(self, width, height):
@@ -255,6 +317,7 @@ class gl_widget(QOpenGLWidget):
     def initializeGL(self):
         glClearColor(1.0, 1.0, 1.0, 1.0)
         glEnable(GL_DEPTH_TEST)
+        glEnable(GL_TEXTURE_2D)  # Ensure that texture mapping is enabled
 
         self.axis = axis()
         self.tetrahedron = tetrahedron()
@@ -262,6 +325,7 @@ class gl_widget(QOpenGLWidget):
         self.cone = cone()
         self.cylinder = cylinder()
         self.sphere = sphere()
+        self.chess_board = ChessBoard()
 
         self.base = Component(1.0, 0.6, 0.2, 0.6, origin_y=-0.1)  # Base rotates around Z-axis
         self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
@@ -280,7 +344,47 @@ class gl_widget(QOpenGLWidget):
         self.model.components.append(self.base)
         self.model.components.append(self.base)
 
+        # Load texture
+        self.texture_id = load_texture("chessboard_texture.png")
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
 
+    def set_lighting(self):
+        glEnable(GL_LIGHTING)
+        if self.light0_enabled:
+            glEnable(GL_LIGHT0)
+        else:
+            glDisable(GL_LIGHT0)
+
+        if self.light1_enabled:
+            glEnable(GL_LIGHT1)
+        else:
+            glDisable(GL_LIGHT1)
+
+        light0_position = [1.0, 1.0, 1.0, 0.0]
+        light0_diffuse = [1.0, 1.0, 1.0, 1.0]
+        glLightfv(GL_LIGHT0, GL_POSITION, light0_position)
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, light0_diffuse)
+
+        light1_position = [0.0, 1.0, 0.0, 1.0]
+        light1_diffuse = [1.0, 0.0, 1.0, 1.0]
+        glLightfv(GL_LIGHT1, GL_POSITION, light1_position)
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, light1_diffuse)
+
+    def load_texture(self, file_name):
+        image = QImage(file_name)
+        image = image.mirrored()
+        image = image.convertToFormat(QImage.Format_RGB888)
+        width = image.width()
+        height = image.height()
+        data = image.bits().asstring(width * height * 3)
+
+        self.texture_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
 
     def load_ply_as_revolution(self, file_name):
         profile_points = self.read_ply_profile(file_name)  # Zmiana: użycie metody do wczytywania profilu
