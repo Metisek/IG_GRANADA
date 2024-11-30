@@ -294,7 +294,10 @@ class gl_widget(QOpenGLWidget):
                 self.model.draw(3)
 
         if self.object == OBJECT_CHESSBOARD:
+            glEnable(GL_TEXTURE_2D)
+            glBindTexture(GL_TEXTURE_2D, self.texture_id)
             self.chess_board.draw_texture()
+            glDisable(GL_TEXTURE_2D)
 
         if self.animation_active:
             self.animate()
