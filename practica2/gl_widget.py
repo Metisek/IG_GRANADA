@@ -50,6 +50,7 @@ DISPLAY_UNLIT_TEXTURE = 4
 DISPLAY_TEXTURE_FLAT = 5
 DISPLAY_TEXTURE_GOURAUD = 6
 
+
 class gl_widget(QOpenGLWidget):
     def __init__(self, parent=None):
         super(gl_widget, self).__init__(parent)
@@ -71,6 +72,7 @@ class gl_widget(QOpenGLWidget):
         self.ply_object = None
 
         self.angle_step = 1
+        self.light_angle = 0
 
         self.animation_active = False
 
@@ -202,8 +204,9 @@ class gl_widget(QOpenGLWidget):
         if self.animation_active:
             self.arm1.angle_yaw += self.angle_step
             self.update()
-            self.lights[1].position[0] = math.cos(math.radians(self.arm1.angle_yaw)) * 1.0
-            self.lights[1].position[2] = math.sin(math.radians(self.arm1.angle_yaw)) * 1.0
+            self.light_angle = (self.light_angle + self.angle_step) % 360
+            self.lights[1].position[0] = math.cos(math.radians(self.light_angle)) * 1.0
+            self.lights[1].position[2] = math.sin(math.radians(self.light_angle)) * 1.0
         else:
             self.timer.stop()
 
@@ -419,7 +422,6 @@ class gl_widget(QOpenGLWidget):
         self.arm3.children.append(self.gripper1)
         self.arm3.children.append(self.gripper2)
         self.model = HierarchicalModel()
-        self.model.components.append(self.base)
         self.model.components.append(self.base)
 
         # Load texture

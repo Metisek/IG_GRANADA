@@ -3,15 +3,16 @@ from OpenGL.GL import *
 import math
 from objects.cuboid import Cuboid
 from object3d import object3D
+from materials import OpenGLMaterial
 
 class HierarchicalModel:
     def __init__(self):
         self.components = []
 
-    def draw(self, draw_mode, lights=[]):
+    def draw(self, draw_mode, lights=[], material: OpenGLMaterial = None):
         for component in self.components:
             glPushMatrix()
-            component.draw(draw_mode, lights)
+            component.draw(draw_mode, lights, material)
             glPopMatrix()
 
 class Component(object3D):
@@ -66,7 +67,7 @@ class Component(object3D):
         self.children = []
 
 
-    def draw(self, draw_mode, lights):
+    def draw(self, draw_mode, lights, material: OpenGLMaterial = None):
         if self.limit_pitch is not None:
             if self.angle_pitch < self.limit_pitch[0]:
                 self.angle_pitch = self.limit_pitch[0]
@@ -84,13 +85,15 @@ class Component(object3D):
                 self.angle_roll = self.limit_roll[0]
             elif self.angle_roll > self.limit_roll[1]:
                 self.angle_roll = self.limit_roll[1]
-        """Apply rotations and draw the component."""
-        # Apply rotations with OpenGL transformations
+
+        # Apply rotations and draw the component
         glTranslatef(self.offset_x, self.offset_y, self.offset_z)
         glRotatef(self.angle_pitch, 1, 0, 0)  # Rotate around X-axis
         glRotatef(self.angle_yaw, 0, 1, 0)  # Rotate around Y-axis
         glRotatef(self.angle_roll, 0, 0, 1)  # Rotate around Z-axis
         glTranslatef(self.origin_x, self.origin_y, self.origin_z)
+
+
 
         # Draw cuboid in the specified mode
         if draw_mode == 0:
@@ -102,18 +105,16 @@ class Component(object3D):
         elif draw_mode == 3:
             self.cuboid.draw_chess()
         elif draw_mode == 4:
-            self.cuboid.draw_flat_shaded(lights)
+            self.apply_lights(lights)
+            self.cuboid.draw_flat_shaded(lights, material)
         elif draw_mode == 5:
-            self.cuboid.draw_gouraud_shaded(lights)
-
+            self.apply_lights(lights)
+            self.cuboid.draw_gouraud_shaded(lights, material)
 
         glTranslatef(-self.origin_x, -self.origin_y, -self.origin_z)
 
         # Draw each child component
         for child in self.children:
             glPushMatrix()
-            child.draw(draw_mode, lights)
+            child.draw(draw_mode, lights, material)
             glPopMatrix()
-
-
-
