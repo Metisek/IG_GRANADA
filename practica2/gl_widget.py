@@ -8,17 +8,19 @@ import math
 import common
 
 from axis import axis
-from tetrahedron import tetrahedron
-from cube import cube
+from objects.tetrahedron import tetrahedron
+from objects.cube import cube
 from file_ply import read_ply, PLYObject
 from object3d import object3D
-from cone import cone
-from cylinder import cylinder
-from sphere import sphere
-from hierarchial_model import HierarchicalModel, Component
+from objects.cone import cone
+from objects.cylinder import cylinder
+from objects.sphere import sphere
+from objects.hierarchial_model import HierarchicalModel, Component
 from file_ply import RevolutionObject
-from chess_board import ChessBoard
+from objects.chess_board import ChessBoard
 from texture_utils import load_texture
+from lights import Light
+from materials import OpenGLMaterial
 
 X_MIN = -.1
 X_MAX = .1
@@ -28,6 +30,7 @@ FRONT_PLANE_PERSPECTIVE = (X_MAX - X_MIN) / 2
 BACK_PLANE_PERSPECTIVE = 1000
 DEFAULT_DISTANCE = 2
 ANGLE_STEP = 1
+HIERARCHY_ANGLE_STEP = 0.2
 DISTANCE_FACTOR = 1.1
 
 OBJECT_TETRAHEDRON = 0
@@ -39,11 +42,13 @@ OBJECT_PLY = 5
 OBJECT_HIERARCHY = 6
 OBJECT_CHESSBOARD = 7
 
-FLAT_SHADING = 0
-GOURAUD_SHADING = 1
-TEXTURE_UNLIT = 2
-TEXTURE_FLAT = 3
-TEXTURE_GOURAUD = 4
+DISPLAY_SOLID = 0
+DISPLAY_CHESS = 1
+DISPLAY_FLAT_SHADED = 2
+DISPLAY_GOURAUD_SHADED = 3
+DISPLAY_UNLIT_TEXTURE = 4
+DISPLAY_TEXTURE_FLAT = 5
+DISPLAY_TEXTURE_GOURAUD = 6
 
 class gl_widget(QOpenGLWidget):
     def __init__(self, parent=None):
@@ -57,8 +62,10 @@ class gl_widget(QOpenGLWidget):
 
         self.draw_point = True
         self.draw_line = False
-        self.draw_fill = False
-        self.draw_chess = False
+
+        self.solid_enabled = False
+        self.solid_mode = DISPLAY_SOLID
+        self.material_index = 0
 
         self.object = OBJECT_TETRAHEDRON
         self.ply_object = None
@@ -66,13 +73,6 @@ class gl_widget(QOpenGLWidget):
         self.angle_step = 1
 
         self.animation_active = False
-
-        self.shading_mode = FLAT_SHADING
-        self.texture_mode = TEXTURE_UNLIT
-
-        self.light0_enabled = True
-        self.light1_enabled = True
-        self.material_index = 0
 
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -104,9 +104,7 @@ class gl_widget(QOpenGLWidget):
         elif event.key() == Qt.Key.Key_L:
             self.draw_line = not self.draw_line
         elif event.key() == Qt.Key.Key_F:
-            self.draw_fill = not self.draw_fill
-        elif event.key() == Qt.Key.Key_C:
-            self.draw_chess = not self.draw_chess
+            self.solid_enabled = not self.solid_enabled
 
         if event.key() == Qt.Key.Key_Left:
             self.observer_angle_y -= ANGLE_STEP
@@ -144,55 +142,59 @@ class gl_widget(QOpenGLWidget):
         elif event.key() == Qt.Key_X:
             self.arm3.angle_pitch -= self.angle_step
 
-        # Modify rotation speed
+        # Modify rotation speed for base
         if event.key() == Qt.Key.Key_E:
-            self.angle_step += 0.2
-            if self.angle_step > 10:
-                self.angle_step = 10
+            self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
+            if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
+                self.arm1.speed_yaw = self.arm1.limit_speed_yaw
         elif event.key() == Qt.Key.Key_R:
-            self.angle_step -= 0.2
-            if self.angle_step < 0:
-                self.angle_step = 0
+            self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
+            if self.arm1.speed_yaw < 0:
+                self.arm1.speed_yaw = 0
 
         # Modify rotation speed for second and third degrees of freedom
         if event.key() == Qt.Key.Key_T:
-            self.arm2.angle_pitch += self.angle_step
+            self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
+            if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
+                self.arm2.angle_pitch = self.arm2.limit_speed_pitch
         elif event.key() == Qt.Key.Key_Y:
-            self.arm2.angle_pitch -= self.angle_step
+            self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
+            if self.arm2.angle_pitch < 0:
+                self.arm2.angle_pitch = 0
         if event.key() == Qt.Key.Key_U:
-            self.arm3.angle_pitch += self.angle_step
+            self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
+            if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
+                self.arm3.angle_pitch = self.arm3.limit_speed_pitch
         elif event.key() == Qt.Key.Key_I:
-            self.arm3.angle_pitch -= self.angle_step
+            self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
+            if self.arm3.angle_pitch < 0:
+                self.arm3.angle_pitch = 0
 
-        # Shading and texture modes
-        if event.key() == Qt.Key.Key_F3:
-            self.shading_mode = FLAT_SHADING
-        elif event.key() == Qt.Key.Key_F4:
-            self.shading_mode = GOURAUD_SHADING
-        elif event.key() == Qt.Key.Key_F5:
-            self.texture_mode = TEXTURE_UNLIT
-        elif event.key() == Qt.Key.Key_F6:
-            self.texture_mode = TEXTURE_FLAT
-        elif event.key() == Qt.Key.Key_F7:
-            self.texture_mode = TEXTURE_GOURAUD
-
-        # Light control
-        if event.key() == Qt.Key.Key_J:
-            self.light0_enabled = not self.light0_enabled
-        elif event.key() == Qt.Key.Key_K:
-            self.light1_enabled = not self.light1_enabled
-
-        # Material selection
+        # Materials
         if event.key() == Qt.Key.Key_M:
-            self.material_index = (self.material_index + 1) % 3
+            self.material_index = (self.material_index + 1) % len(self.materials)
+
+        # Lights
+        if event.key() == Qt.Key.Key_J:
+            self.enabled_lights[0] = not self.enabled_lights[0]
+        elif event.key() == Qt.Key.Key_K:
+            self.enabled_lights[1] = not self.enabled_lights[1]
 
         # Display modes
         if event.key() == Qt.Key.Key_F1:
-            self.draw_fill = True
-            self.draw_chess = False
+            self.solid_mode = DISPLAY_SOLID
         elif event.key() == Qt.Key.Key_F2:
-            self.draw_fill = False
-            self.draw_chess = True
+            self.solid_mode = DISPLAY_CHESS
+        elif event.key() == Qt.Key.Key_F3:
+            self.solid_mode = DISPLAY_FLAT_SHADED
+        elif event.key() == Qt.Key.Key_F4:
+            self.solid_mode = DISPLAY_GOURAUD_SHADED
+        elif event.key() == Qt.Key.Key_F5:
+            self.solid_mode = DISPLAY_UNLIT_TEXTURE
+        elif event.key() == Qt.Key.Key_F6:
+            self.solid_mode = DISPLAY_TEXTURE_FLAT
+        elif event.key() == Qt.Key.Key_F7:
+            self.solid_mode = DISPLAY_TEXTURE_GOURAUD
 
         self.update()
 
@@ -200,11 +202,16 @@ class gl_widget(QOpenGLWidget):
         if self.animation_active:
             self.arm1.angle_yaw += self.angle_step
             self.update()
+            self.lights[1].position[0] = math.cos(math.radians(self.arm1.angle_yaw)) * 1.0
+            self.lights[1].position[2] = math.sin(math.radians(self.arm1.angle_yaw)) * 1.0
         else:
             self.timer.stop()
 
     def start_animation(self):
-        self.timer.start()
+        if not hasattr(self, 'timer'):
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.animate)
+        self.timer.start(1000 // 60)
 
     def clear_window(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -241,6 +248,8 @@ class gl_widget(QOpenGLWidget):
                 self.sphere.draw_point()
             elif self.object == OBJECT_HIERARCHY:
                 self.model.draw(0)
+            elif self.object == OBJECT_CHESSBOARD:
+                self.chess_board.draw_point()
 
         if self.draw_line:
             glLineWidth(3)
@@ -259,45 +268,84 @@ class gl_widget(QOpenGLWidget):
                 self.sphere.draw_line()
             elif self.object == OBJECT_HIERARCHY:
                 self.model.draw(1)
+            elif self.object == OBJECT_CHESSBOARD:
+                self.chess_board.draw_line()
 
-        if self.draw_fill:
-            glColor3fv(common.BLUE)
-            if self.object == OBJECT_TETRAHEDRON:
-                self.tetrahedron.draw_fill()
-            elif self.object == OBJECT_CUBE:
-                self.cube.draw_fill()
-            elif self.object == OBJECT_PLY and self.ply_object:
-                self.ply_object.draw_fill()
-            elif self.object == OBJECT_CONE:
-                self.cone.draw_fill()
-            elif self.object == OBJECT_CYLINDER:
-                self.cylinder.draw_fill()
-            elif self.object == OBJECT_SPHERE:
-                self.sphere.draw_fill()
-            elif self.object == OBJECT_HIERARCHY:
-                self.model.draw(2)
+        if self.solid_enabled:
+            if self.solid_mode == DISPLAY_SOLID:
+                glColor3fv(common.BLUE)
+                if self.object == OBJECT_TETRAHEDRON:
+                    self.tetrahedron.draw_fill()
+                elif self.object == OBJECT_CUBE:
+                    self.cube.draw_fill()
+                elif self.object == OBJECT_PLY and self.ply_object:
+                    self.ply_object.draw_fill()
+                elif self.object == OBJECT_CONE:
+                    self.cone.draw_fill()
+                elif self.object == OBJECT_CYLINDER:
+                    self.cylinder.draw_fill()
+                elif self.object == OBJECT_SPHERE:
+                    self.sphere.draw_fill()
+                elif self.object == OBJECT_HIERARCHY:
+                    self.model.draw(2)
+                elif self.object == OBJECT_CHESSBOARD:
+                    self.chess_board.draw_fill()
 
-        if self.draw_chess:
-            if self.object == OBJECT_TETRAHEDRON:
-                self.tetrahedron.draw_chess()
-            elif self.object == OBJECT_CUBE:
-                self.cube.draw_chess()
-            elif self.object == OBJECT_PLY and self.ply_object:
-                self.ply_object.draw_chess()
-            elif self.object == OBJECT_CONE:
-                self.cone.draw_chess()
-            elif self.object == OBJECT_CYLINDER:
-                self.cylinder.draw_chess()
-            elif self.object == OBJECT_SPHERE:
-                self.sphere.draw_chess()
-            elif self.object == OBJECT_HIERARCHY:
-                self.model.draw(3)
+            elif self.solid_mode == DISPLAY_CHESS:
+                if self.object == OBJECT_TETRAHEDRON:
+                    self.tetrahedron.draw_chess()
+                elif self.object == OBJECT_CUBE:
+                    self.cube.draw_chess()
+                elif self.object == OBJECT_PLY and self.ply_object:
+                    self.ply_object.draw_chess()
+                elif self.object == OBJECT_CONE:
+                    self.cone.draw_chess()
+                elif self.object == OBJECT_CYLINDER:
+                    self.cylinder.draw_chess()
+                elif self.object == OBJECT_SPHERE:
+                    self.sphere.draw_chess()
+                elif self.object == OBJECT_HIERARCHY:
+                    self.model.draw(3)
+                elif self.object == OBJECT_CHESSBOARD:
+                    self.chess_board.draw_chess()
 
-        if self.object == OBJECT_CHESSBOARD:
-            glEnable(GL_TEXTURE_2D)
-            glBindTexture(GL_TEXTURE_2D, self.texture_id)
-            self.chess_board.draw_texture()
-            glDisable(GL_TEXTURE_2D)
+            if self.solid_mode == DISPLAY_FLAT_SHADED:
+                active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
+                if self.object == OBJECT_TETRAHEDRON:
+                    self.tetrahedron.draw_flat_shaded(active_lights)
+                elif self.object == OBJECT_CUBE:
+                    self.cube.draw_flat_shaded(active_lights)
+                elif self.object == OBJECT_PLY and self.ply_object:
+                    self.ply_object.draw_flat_shaded(active_lights)
+                elif self.object == OBJECT_CONE:
+                    self.cone.draw_flat_shaded(active_lights)
+                elif self.object == OBJECT_CYLINDER:
+                    self.cylinder.draw_flat_shaded(active_lights)
+                elif self.object == OBJECT_SPHERE:
+                    self.sphere.draw_flat_shaded(active_lights)
+                elif self.object == OBJECT_HIERARCHY:
+                    self.model.draw(4, active_lights)
+                elif self.object == OBJECT_CHESSBOARD:
+                    self.chess_board.draw_flat_shaded(active_lights)
+
+            if self.solid_mode == DISPLAY_GOURAUD_SHADED:
+                active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
+                if self.object == OBJECT_TETRAHEDRON:
+                    self.tetrahedron.draw_gouraud_shaded(active_lights)
+                elif self.object == OBJECT_CUBE:
+                    self.cube.draw_gouraud_shaded(active_lights)
+                elif self.object == OBJECT_PLY and self.ply_object:
+                    self.ply_object.draw_gouraud_shaded(active_lights)
+                elif self.object == OBJECT_CONE:
+                    self.cone.draw_gouraud_shaded(active_lights)
+                elif self.object == OBJECT_CYLINDER:
+                    self.cylinder.draw_gouraud_shaded(active_lights)
+                elif self.object == OBJECT_SPHERE:
+                    self.sphere.draw_gouraud_shaded(active_lights)
+                elif self.object == OBJECT_HIERARCHY:
+                    self.model.draw(5, active_lights)
+                elif self.object == OBJECT_CHESSBOARD:
+                    self.chess_board.draw_gouraud_shaded(active_lights)
 
         if self.animation_active:
             self.animate()
@@ -311,7 +359,6 @@ class gl_widget(QOpenGLWidget):
         self.clear_window()
         self.change_projection()
         self.change_observer()
-        self.set_lighting()
         self.draw_objects()
 
     def resizeGL(self, width, height):
@@ -329,6 +376,24 @@ class gl_widget(QOpenGLWidget):
         self.cylinder = cylinder()
         self.sphere = sphere()
         self.chess_board = ChessBoard()
+
+        self.materials = [
+            OpenGLMaterial("Bronze", [0.2125, 0.1275, 0.054], [0.714, 0.4284, 0.18144], [0.393548, 0.271906, 0.166721], 0.2),
+            OpenGLMaterial("Silver", [0.19225, 0.19225, 0.19225], [0.50754, 0.50754, 0.50754], [0.508273, 0.508273, 0.508273], 0.4),
+            OpenGLMaterial("Gold", [0.24725, 0.1995, 0.0745], [0.75164, 0.60648, 0.22648], [0.628281, 0.555802, 0.366065], 0.4)
+        ]
+
+        self.lights = [
+            Light(position=[0.0, 0.0, 1.0, 0.0], ambient=[1.0, 1.0, 1.0, 1.0], diffuse=[1.0, 1.0, 1.0, 1.0], specular=[1.0, 1.0, 1.0, 1.0], infinite=True),
+            Light(position=[1.0, 1.0, 1.0, 1.0],
+                  ambient=[1.0, 0.0, 1.0, 1.0],
+                  diffuse=[1.0, 0.0, 1.0, 1.0],
+                  specular=[1.0, 0.0, 1.0, 1.0],
+                  infinite=False,
+                  shininess=15.0)
+        ]
+
+        self.enabled_lights = [False, False]
 
         self.base = Component(1.0, 0.6, 0.2, 0.6, origin_y=-0.1)  # Base rotates around Z-axis
         self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
@@ -350,28 +415,6 @@ class gl_widget(QOpenGLWidget):
         # Load texture
         self.texture_id = load_texture("chessboard_texture.png")
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
-
-    def set_lighting(self):
-        glEnable(GL_LIGHTING)
-        if self.light0_enabled:
-            glEnable(GL_LIGHT0)
-        else:
-            glDisable(GL_LIGHT0)
-
-        if self.light1_enabled:
-            glEnable(GL_LIGHT1)
-        else:
-            glDisable(GL_LIGHT1)
-
-        light0_position = [1.0, 1.0, 1.0, 0.0]
-        light0_diffuse = [1.0, 1.0, 1.0, 1.0]
-        glLightfv(GL_LIGHT0, GL_POSITION, light0_position)
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, light0_diffuse)
-
-        light1_position = [0.0, 1.0, 0.0, 1.0]
-        light1_diffuse = [1.0, 0.0, 1.0, 1.0]
-        glLightfv(GL_LIGHT1, GL_POSITION, light1_position)
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, light1_diffuse)
 
     def load_texture(self, file_name):
         image = QImage(file_name)

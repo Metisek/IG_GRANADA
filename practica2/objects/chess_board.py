@@ -1,6 +1,7 @@
 from object3d import object3D
 from OpenGL.GL import *
 import numpy as np
+import common
 
 class ChessBoard(object3D):
     def __init__(self):
@@ -16,11 +17,9 @@ class ChessBoard(object3D):
         ]
 
     def draw_texture(self):
-        glEnable(GL_TEXTURE_2D)
         glBegin(GL_TRIANGLES)
         for i, triangle in enumerate(self.triangles):
             for vertex in triangle:
                 glTexCoord2fv(self.texture_coords[vertex])
                 glVertex3fv(self.vertices[vertex])
         glEnd()
-        glDisable(GL_TEXTURE_2D)

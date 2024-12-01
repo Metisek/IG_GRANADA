@@ -1,17 +1,17 @@
 # hierarchial_model.py
 from OpenGL.GL import *
 import math
-from cuboid import Cuboid
+from objects.cuboid import Cuboid
 from object3d import object3D
 
 class HierarchicalModel:
     def __init__(self):
         self.components = []
 
-    def draw(self, draw_mode):
+    def draw(self, draw_mode, lights=[]):
         for component in self.components:
             glPushMatrix()
-            component.draw(draw_mode)
+            component.draw(draw_mode, lights)
             glPopMatrix()
 
 class Component(object3D):
@@ -19,6 +19,8 @@ class Component(object3D):
                  angle_pitch=0, angle_yaw=0, angle_roll=0,
                  rotation_axis_pitch=False, rotation_axis_yaw=False, rotation_axis_roll=False,
                  limit_pitch=None, limit_yaw=None, limit_roll=None,
+                 limit_speed_pitch=5, limit_speed_yaw=5, limit_speed_roll=5,
+                 speed_pitch=1, speed_yaw=1, speed_roll=1,
                  offset_x=0, offset_y=0, offset_z=0,
                  origin_x=0, origin_y=0, origin_z=0):
         self.length = length
@@ -46,6 +48,14 @@ class Component(object3D):
         self.origin_y = origin_y
         self.origin_z = origin_z
 
+        self.limit_speed_pitch = limit_speed_pitch
+        self.limit_speed_yaw = limit_speed_yaw
+        self.limit_speed_roll = limit_speed_roll
+
+        self.speed_pitch = speed_pitch
+        self.speed_yaw = speed_yaw
+        self.speed_roll = speed_roll
+
         self.cuboid = Cuboid(self.length, self.width, self.height, self.depth,
                      self.angle_pitch, self.angle_yaw, self.angle_roll,
                      self.rotation_axis_pitch, self.rotation_axis_yaw, self.rotation_axis_roll,
@@ -56,7 +66,7 @@ class Component(object3D):
         self.children = []
 
 
-    def draw(self, draw_mode):
+    def draw(self, draw_mode, lights):
         if self.limit_pitch is not None:
             if self.angle_pitch < self.limit_pitch[0]:
                 self.angle_pitch = self.limit_pitch[0]
@@ -91,13 +101,18 @@ class Component(object3D):
             self.cuboid.draw_fill()
         elif draw_mode == 3:
             self.cuboid.draw_chess()
+        elif draw_mode == 4:
+            self.cuboid.draw_flat_shaded(lights)
+        elif draw_mode == 5:
+            self.cuboid.draw_gouraud_shaded(lights)
+
 
         glTranslatef(-self.origin_x, -self.origin_y, -self.origin_z)
 
         # Draw each child component
         for child in self.children:
             glPushMatrix()
-            child.draw(draw_mode)
+            child.draw(draw_mode, lights)
             glPopMatrix()
 
 

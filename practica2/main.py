@@ -38,7 +38,7 @@ if __name__ == '__main__':
     F5 - Display in unlit texture mode
     F6 - Display in texture mode with flat shaded lighting
     F7 - Gouraud shaded lighting texture mode display
-    J - Activate/deactivate the first light
-    K - Activate/deactivate the second light
+    J - Activate/deactivate the first white light
+    K - Activate/deactivate the second magenta light
     M - Consecutive selection between the three materials
     """
