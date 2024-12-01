@@ -1,5 +1,10 @@
 # object3d.py
-from OpenGL.GL import *
+from OpenGL.GL import (
+    glBegin, glEnd, glVertex3fv, glColor3fv, glTexCoord2fv, glNormal3fv,
+    glEnable, glDisable, glBindTexture, glShadeModel, GL_LINES, GL_TRIANGLES,
+    GL_FLAT, GL_SMOOTH, GL_TEXTURE_2D, GL_LIGHTING, GL_LIGHT0, GL_MAX_LIGHTS,
+    glColor3f
+)
 import numpy as np
 import common
 from basic_object3d import basic_object3D
@@ -61,19 +66,19 @@ class object3D(basic_object3D):
     def calculate_face_normals(self):
         self.normals = []
         for triangle in self.triangles:
-            v0 = np.array(self.vertices[triangle[0]])
-            v1 = np.array(self.vertices[triangle[1]])
-            v2 = np.array(self.vertices[triangle[2]])
+            v0 = np.array(self.vertices[triangle[0]], dtype=np.float32)
+            v1 = np.array(self.vertices[triangle[1]], dtype=np.float32)
+            v2 = np.array(self.vertices[triangle[2]], dtype=np.float32)
             normal = np.cross(v1 - v0, v2 - v0)
-            normal = normal / np.linalg.norm(normal)
+            normal /= np.linalg.norm(normal)
             self.normals.append(normal)
 
     def calculate_vertex_normals(self):
-        self.vertex_normals = [np.zeros(3) for _ in range(len(self.vertices))]
+        self.vertex_normals = [np.zeros(3, dtype=np.float32) for _ in range(len(self.vertices))]
         for triangle in self.triangles:
-            v0, v1, v2 = [np.array(self.vertices[i]) for i in triangle]
+            v0, v1, v2 = [np.array(self.vertices[i], dtype=np.float32) for i in triangle]
             normal = np.cross(v1 - v0, v2 - v0)
-            normal = normal / np.linalg.norm(normal)
+            normal /= np.linalg.norm(normal)
             for i in triangle:
                 self.vertex_normals[i] += normal
         self.vertex_normals = [normal / np.linalg.norm(normal) for normal in self.vertex_normals]
@@ -118,7 +123,7 @@ class object3D(basic_object3D):
         glEnd()
         glDisable(GL_LIGHTING)
 
-    def draw_unlit_texture(self):
+    def draw_unlit_texture(self, material: OpenGLMaterial):
         if not self.texture_coords or len(self.texture_coords) != len(self.vertices):
             print("Error: Texture coordinates are not set correctly.")
             return
@@ -127,6 +132,7 @@ class object3D(basic_object3D):
             print("Error: Texture is not loaded.")
             return
 
+        material.apply()
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
         glDisable(GL_LIGHTING)  # Wyłączenie oświetlenia
@@ -143,60 +149,58 @@ class object3D(basic_object3D):
         glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
 
 
-    def draw_texture_flat_shaded(self, lights: list[Light]):
-        self.calculate_normals()
+    def draw_texture_flat_shaded(self, lights: list[Light], material: OpenGLMaterial):
+        self.calculate_face_normals()  # Use face normals for flat shading
+        material.apply()
         self.apply_lights(lights)
         glShadeModel(GL_FLAT)
 
-        # Włączanie tekstury
         if not self.texture_id:
             print("Error: Texture not loaded.")
             return
 
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
-        glDisable(GL_LIGHTING)  # Wyłączenie oświetlenia dla trybu unlit
 
-        glColor3f(1.0, 1.0, 1.0)  # Neutralny kolor (biały), tekstura powinna być widoczna
+        glColor3f(1.0, 1.0, 1.0)  # Neutral color (white)
 
         glBegin(GL_TRIANGLES)
-        for triangle in self.triangles:
+        for i, triangle in enumerate(self.triangles):
+            glNormal3fv(self.normals[i])  # Use face normal
             for vertex in triangle:
                 glTexCoord2fv(self.texture_coords[vertex])
-                glNormal3fv(self.normals[vertex])
                 glVertex3fv(self.vertices[vertex])
         glEnd()
 
         glDisable(GL_TEXTURE_2D)
-        glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
-        glEnable(GL_LIGHTING)  # Ponowne włączenie oświetlenia
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glEnable(GL_LIGHTING)
 
 
-    def draw_texture_gouraud_shaded(self, lights: list[Light]):
-        self.calculate_normals()
+    def draw_texture_gouraud_shaded(self, lights: list[Light], material: OpenGLMaterial):
+        self.calculate_vertex_normals()  # Use vertex normals for Gouraud shading
+        material.apply()
         self.apply_lights(lights)
         glShadeModel(GL_SMOOTH)
 
-        # Włączanie tekstury
         if not self.texture_id:
             print("Error: Texture not loaded.")
             return
 
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
-        glDisable(GL_LIGHTING)  # Wyłączenie oświetlenia dla trybu unlit
 
-        glColor3f(1.0, 1.0, 1.0)  # Neutralny kolor (biały), tekstura powinna być widoczna
+        glColor3f(1.0, 1.0, 1.0)  # Neutral color (white)
 
         glBegin(GL_TRIANGLES)
         for triangle in self.triangles:
             for vertex in triangle:
                 glTexCoord2fv(self.texture_coords[vertex])
-                glNormal3fv(self.vertex_normals[vertex])
+                glNormal3fv(self.vertex_normals[vertex])  # Use vertex normal
                 glVertex3fv(self.vertices[vertex])
         glEnd()
 
         glDisable(GL_TEXTURE_2D)
-        glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
-        glEnable(GL_LIGHTING)  # Ponowne włączenie oświetlenia
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glEnable(GL_LIGHTING)
 

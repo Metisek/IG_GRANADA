@@ -21,13 +21,6 @@ class Light(basic_object3D):
         self.color = color
 
     def apply_light(self, light_id):
-
-        print(f"Applying light {light_id}:")
-        print(f"  Position: {self.position}")
-        print(f"  Ambient: {self.ambient}")
-        print(f"  Diffuse: {self.diffuse}")
-        print(f"  Specular: {self.specular}")
-        print(f"  Brightness: {self.brightness}")
         glEnable(GL_LIGHTING)
         glEnable(light_id)
 

@@ -252,11 +252,6 @@ class gl_widget(QOpenGLWidget):
         active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
         material = self.materials[self.material_index]
 
-        print("Drawing objects:")
-        print(f"  Selected object: {self.object}")
-        print(f"  Active lights: {len(active_lights)}")
-        print(f"  Current material: {self.materials[self.material_index].name}")
-
         if self.draw_point:
             glPointSize(5)
             glColor3fv(common.BLACK)
@@ -301,19 +296,19 @@ class gl_widget(QOpenGLWidget):
 
             if self.solid_mode == DISPLAY_UNLIT_TEXTURE:
                 check = self.texture_object_check()
-                selected_object.draw_unlit_texture()
+                selected_object.draw_unlit_texture(self.clear_white_material)
                 if check:
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_FLAT:
                 check = self.texture_object_check()
-                selected_object.draw_texture_flat_shaded(active_lights)
+                selected_object.draw_texture_flat_shaded(active_lights, self.clear_white_material)
                 if check:
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_GOURAUD:
                 check = self.texture_object_check()
-                selected_object.draw_texture_gouraud_shaded(active_lights)
+                selected_object.draw_texture_gouraud_shaded(active_lights, self.clear_white_material)
                 if check:
                     self.update()
 
@@ -381,6 +376,15 @@ class gl_widget(QOpenGLWidget):
                 color=[0.1, 0.8, 0.1, 1.0],  # Zielony odcień
             ),
         ]
+
+        self.clear_white_material = OpenGLMaterial(
+            name="White",
+            ambient=[0.0, 0.0, 0.0, 1.0],
+            diffuse=[1.0, 1.0, 1.0, 1.0],
+            specular=[1.0, 1.0, 1.0, 1.0],
+            shininess=100,
+            color=[1.0, 1.0, 1.0, 1.0]
+        )
 
 
         self.lights = [
