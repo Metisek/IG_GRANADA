@@ -15,6 +15,7 @@ class object3D(basic_object3D):
         self.vertex_normals = []
         self.texture_coords = []
         self.selected_triangle = None
+        self.texture_id = None
 
     def draw_line(self):
         glBegin(GL_LINES)
@@ -47,24 +48,10 @@ class object3D(basic_object3D):
                 glVertex3fv(self.vertices[vertex_index])
         glEnd()
 
-    def draw_texture(self):
-        if not self.texture_coords or len(self.texture_coords) != len(self.vertices):
-            print("Error: Texture coordinates are not set correctly.")
-            return
-
-        glEnable(GL_TEXTURE_2D)
-        glBegin(GL_TRIANGLES)
-        for triangle in self.triangles:
-            for vertex in triangle:
-                glTexCoord2fv(self.texture_coords[vertex])
-                glVertex3fv(self.vertices[vertex])
-        glEnd()
-        glDisable(GL_TEXTURE_2D)
-
     def calculate_normals(self):
-        self.normals = np.zeros((len(self.vertices), 3))
+        self.normals = np.zeros((len(self.vertices), 3), dtype=np.float32)  # Initialize with float32
         for triangle in self.triangles:
-            v0, v1, v2 = [np.array(self.vertices[i]) for i in triangle]
+            v0, v1, v2 = [np.array(self.vertices[i], dtype=np.float32) for i in triangle]  # Ensure vertices are float32
             normal = np.cross(v1 - v0, v2 - v0)
             normal /= np.linalg.norm(normal)
             for i in triangle:
@@ -132,13 +119,46 @@ class object3D(basic_object3D):
         glDisable(GL_LIGHTING)
 
     def draw_unlit_texture(self):
-        self.draw_texture()
+        if not self.texture_coords or len(self.texture_coords) != len(self.vertices):
+            print("Error: Texture coordinates are not set correctly.")
+            return
+
+        if not hasattr(self, 'texture_id') or self.texture_id is None:
+            print("Error: Texture is not loaded.")
+            return
+
+        glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+        glDisable(GL_LIGHTING)  # Wyłączenie oświetlenia
+        glColor3f(1.0, 1.0, 1.0)  # Neutralny kolor (biały)
+
+        glBegin(GL_TRIANGLES)
+        for triangle in self.triangles:
+            for vertex in triangle:
+                glTexCoord2fv(self.texture_coords[vertex])
+                glVertex3fv(self.vertices[vertex])
+        glEnd()
+
+        glDisable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
+
 
     def draw_texture_flat_shaded(self, lights: list[Light]):
         self.calculate_normals()
         self.apply_lights(lights)
         glShadeModel(GL_FLAT)
+
+        # Włączanie tekstury
+        if not self.texture_id:
+            print("Error: Texture not loaded.")
+            return
+
         glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+        glDisable(GL_LIGHTING)  # Wyłączenie oświetlenia dla trybu unlit
+
+        glColor3f(1.0, 1.0, 1.0)  # Neutralny kolor (biały), tekstura powinna być widoczna
+
         glBegin(GL_TRIANGLES)
         for triangle in self.triangles:
             for vertex in triangle:
@@ -146,14 +166,28 @@ class object3D(basic_object3D):
                 glNormal3fv(self.normals[vertex])
                 glVertex3fv(self.vertices[vertex])
         glEnd()
+
         glDisable(GL_TEXTURE_2D)
-        glDisable(GL_LIGHTING)
+        glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
+        glEnable(GL_LIGHTING)  # Ponowne włączenie oświetlenia
+
 
     def draw_texture_gouraud_shaded(self, lights: list[Light]):
         self.calculate_normals()
         self.apply_lights(lights)
         glShadeModel(GL_SMOOTH)
+
+        # Włączanie tekstury
+        if not self.texture_id:
+            print("Error: Texture not loaded.")
+            return
+
         glEnable(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+        glDisable(GL_LIGHTING)  # Wyłączenie oświetlenia dla trybu unlit
+
+        glColor3f(1.0, 1.0, 1.0)  # Neutralny kolor (biały), tekstura powinna być widoczna
+
         glBegin(GL_TRIANGLES)
         for triangle in self.triangles:
             for vertex in triangle:
@@ -161,5 +195,8 @@ class object3D(basic_object3D):
                 glNormal3fv(self.vertex_normals[vertex])
                 glVertex3fv(self.vertices[vertex])
         glEnd()
+
         glDisable(GL_TEXTURE_2D)
-        glDisable(GL_LIGHTING)
+        glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
+        glEnable(GL_LIGHTING)  # Ponowne włączenie oświetlenia
+

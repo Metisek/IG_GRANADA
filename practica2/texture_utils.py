@@ -4,6 +4,10 @@ from PIL import Image
 
 def load_texture(image_path):
     image = Image.open(image_path)
+    if image is None:
+        print(f"Error: Unable to load texture file {image_path}")
+        return None
+
     image = image.transpose(Image.FLIP_TOP_BOTTOM)
     img_data = image.convert("RGBA").tobytes()
     width, height = image.size

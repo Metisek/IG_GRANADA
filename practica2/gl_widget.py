@@ -228,6 +228,7 @@ class gl_widget(QOpenGLWidget):
         glRotatef(self.observer_angle_x, 1, 0, 0)
         glRotatef(self.observer_angle_y, 0, 1, 0)
 
+
     def draw_objects(self):
         self.axis.draw_line()
         selected_object = None
@@ -298,8 +299,34 @@ class gl_widget(QOpenGLWidget):
                 else:
                     self.model.draw(5, active_lights, material)
 
+            if self.solid_mode == DISPLAY_UNLIT_TEXTURE:
+                check = self.texture_object_check()
+                selected_object.draw_unlit_texture()
+                if check:
+                    self.update()
+
+            if self.solid_mode == DISPLAY_TEXTURE_FLAT:
+                check = self.texture_object_check()
+                selected_object.draw_texture_flat_shaded(active_lights)
+                if check:
+                    self.update()
+
+            if self.solid_mode == DISPLAY_TEXTURE_GOURAUD:
+                check = self.texture_object_check()
+                selected_object.draw_texture_gouraud_shaded(active_lights)
+                if check:
+                    self.update()
+
         if self.animation_active:
             self.animate()
+
+    def texture_object_check(self):
+        if self.object != OBJECT_CHESSBOARD:
+            self.object = OBJECT_CHESSBOARD
+            print("Forcing object with texture...")
+            self.selected_object = self.chess_board
+            return True
+        return False
 
     def load_ply(self, file_name):
         self.ply_object = PLYObject(file_name)
@@ -393,7 +420,7 @@ class gl_widget(QOpenGLWidget):
 
         # Load texture
         self.texture_id = load_texture("chessboard_texture.png")
-        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+        self.chess_board.texture_id = self.texture_id
 
     def load_texture(self, file_name):
         image = QImage(file_name)
