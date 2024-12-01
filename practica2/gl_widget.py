@@ -230,123 +230,73 @@ class gl_widget(QOpenGLWidget):
 
     def draw_objects(self):
         self.axis.draw_line()
+        selected_object = None
+        if self.object == OBJECT_TETRAHEDRON:
+            selected_object = self.tetrahedron
+        elif self.object == OBJECT_CUBE:
+            selected_object = self.cube
+        elif self.object == OBJECT_PLY and self.ply_object:
+            selected_object = self.ply_object
+        elif self.object == OBJECT_CONE:
+            selected_object = self.cone
+        elif self.object == OBJECT_CYLINDER:
+            selected_object = self.cylinder
+        elif self.object == OBJECT_SPHERE:
+            selected_object = self.sphere
+        elif self.object == OBJECT_HIERARCHY:
+            selected_object = self.model
+        elif self.object == OBJECT_CHESSBOARD:
+            selected_object = self.chess_board
+
+        active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
+        material = self.materials[self.material_index]
+
+        print("Drawing objects:")
+        print(f"  Selected object: {self.object}")
+        print(f"  Active lights: {len(active_lights)}")
+        print(f"  Current material: {self.materials[self.material_index].name}")
 
         if self.draw_point:
             glPointSize(5)
             glColor3fv(common.BLACK)
-            if self.object == OBJECT_TETRAHEDRON:
-                self.tetrahedron.draw_point()
-            elif self.object == OBJECT_CUBE:
-                self.cube.draw_point()
-            elif self.object == OBJECT_PLY and self.ply_object:
-                self.ply_object.draw_point()
-            elif self.object == OBJECT_CONE:
-                self.cone.draw_point()
-            elif self.object == OBJECT_CYLINDER:
-                self.cylinder.draw_point()
-            elif self.object == OBJECT_SPHERE:
-                self.sphere.draw_point()
-            elif self.object == OBJECT_HIERARCHY:
+            if self.object != OBJECT_HIERARCHY:
+                selected_object.draw_point()
+            else:
                 self.model.draw(0)
-            elif self.object == OBJECT_CHESSBOARD:
-                self.chess_board.draw_point()
 
         if self.draw_line:
             glLineWidth(3)
             glColor3fv(common.MAGENTA)
-            if self.object == OBJECT_TETRAHEDRON:
-                self.tetrahedron.draw_line()
-            elif self.object == OBJECT_CUBE:
-                self.cube.draw_line()
-            elif self.object == OBJECT_PLY and self.ply_object:
-                self.ply_object.draw_line()
-            elif self.object == OBJECT_CONE:
-                self.cone.draw_line()
-            elif self.object == OBJECT_CYLINDER:
-                self.cylinder.draw_line()
-            elif self.object == OBJECT_SPHERE:
-                self.sphere.draw_line()
-            elif self.object == OBJECT_HIERARCHY:
+            if self.object != OBJECT_HIERARCHY:
+                selected_object.draw_line()
+            else:
                 self.model.draw(1)
-            elif self.object == OBJECT_CHESSBOARD:
-                self.chess_board.draw_line()
 
         if self.solid_enabled:
             if self.solid_mode == DISPLAY_SOLID:
                 glColor3fv(common.BLUE)
-                if self.object == OBJECT_TETRAHEDRON:
-                    self.tetrahedron.draw_fill()
-                elif self.object == OBJECT_CUBE:
-                    self.cube.draw_fill()
-                elif self.object == OBJECT_PLY and self.ply_object:
-                    self.ply_object.draw_fill()
-                elif self.object == OBJECT_CONE:
-                    self.cone.draw_fill()
-                elif self.object == OBJECT_CYLINDER:
-                    self.cylinder.draw_fill()
-                elif self.object == OBJECT_SPHERE:
-                    self.sphere.draw_fill()
-                elif self.object == OBJECT_HIERARCHY:
+                if self.object != OBJECT_HIERARCHY:
+                    selected_object.draw_fill()
+                else:
                     self.model.draw(2)
-                elif self.object == OBJECT_CHESSBOARD:
-                    self.chess_board.draw_fill()
 
             elif self.solid_mode == DISPLAY_CHESS:
-                if self.object == OBJECT_TETRAHEDRON:
-                    self.tetrahedron.draw_chess()
-                elif self.object == OBJECT_CUBE:
-                    self.cube.draw_chess()
-                elif self.object == OBJECT_PLY and self.ply_object:
-                    self.ply_object.draw_chess()
-                elif self.object == OBJECT_CONE:
-                    self.cone.draw_chess()
-                elif self.object == OBJECT_CYLINDER:
-                    self.cylinder.draw_chess()
-                elif self.object == OBJECT_SPHERE:
-                    self.sphere.draw_chess()
-                elif self.object == OBJECT_HIERARCHY:
+                if self.object != OBJECT_HIERARCHY:
+                    selected_object.draw_chess()
+                else:
                     self.model.draw(3)
-                elif self.object == OBJECT_CHESSBOARD:
-                    self.chess_board.draw_chess()
 
             if self.solid_mode == DISPLAY_FLAT_SHADED:
-                active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
-                material = self.materials[self.material_index]
-                if self.object == OBJECT_TETRAHEDRON:
-                    self.tetrahedron.draw_flat_shaded(active_lights, material)
-                elif self.object == OBJECT_CUBE:
-                    self.cube.draw_flat_shaded(active_lights, material)
-                elif self.object == OBJECT_PLY and self.ply_object:
-                    self.ply_object.draw_flat_shaded(active_lights, material)
-                elif self.object == OBJECT_CONE:
-                    self.cone.draw_flat_shaded(active_lights, material)
-                elif self.object == OBJECT_CYLINDER:
-                    self.cylinder.draw_flat_shaded(active_lights, material)
-                elif self.object == OBJECT_SPHERE:
-                    self.sphere.draw_flat_shaded(active_lights, material)
-                elif self.object == OBJECT_HIERARCHY:
-                    self.model.draw(4, active_lights)
-                elif self.object == OBJECT_CHESSBOARD:
-                    self.chess_board.draw_flat_shaded(active_lights)
+                if self.object != OBJECT_HIERARCHY:
+                    selected_object.draw_flat_shaded(active_lights, material)
+                else:
+                    self.model.draw(4, active_lights, material)
 
             if self.solid_mode == DISPLAY_GOURAUD_SHADED:
-                active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
-                if self.object == OBJECT_TETRAHEDRON:
-                    self.tetrahedron.draw_gouraud_shaded(active_lights)
-                elif self.object == OBJECT_CUBE:
-                    self.cube.draw_gouraud_shaded(active_lights)
-                elif self.object == OBJECT_PLY and self.ply_object:
-                    self.ply_object.draw_gouraud_shaded(active_lights)
-                elif self.object == OBJECT_CONE:
-                    self.cone.draw_gouraud_shaded(active_lights)
-                elif self.object == OBJECT_CYLINDER:
-                    self.cylinder.draw_gouraud_shaded(active_lights)
-                elif self.object == OBJECT_SPHERE:
-                    self.sphere.draw_gouraud_shaded(active_lights)
-                elif self.object == OBJECT_HIERARCHY:
-                    self.model.draw(5, active_lights)
-                elif self.object == OBJECT_CHESSBOARD:
-                    self.chess_board.draw_gouraud_shaded(active_lights)
+                if self.object != OBJECT_HIERARCHY:
+                    selected_object.draw_gouraud_shaded(active_lights, material)
+                else:
+                    self.model.draw(5, active_lights, material)
 
         if self.animation_active:
             self.animate()
@@ -375,32 +325,54 @@ class gl_widget(QOpenGLWidget):
         self.cube = cube()
         self.cone = cone()
         self.cylinder = cylinder()
-        self.sphere = sphere()
+        self.sphere = sphere(1, 12)
         self.chess_board = ChessBoard()
 
         self.materials = [
-            OpenGLMaterial("Bronze", [0.2125, 0.1275, 0.054], [0.714, 0.4284, 0.18144], [0.393548, 0.271906, 0.166721], 0.2, color=[0.8, 0.5, 0.2, 1.0]),
-            OpenGLMaterial("Silver", [0.19225, 0.19225, 0.19225], [0.50754, 0.50754, 0.50754], [0.508273, 0.508273, 0.508273], 0.4, color=[0.75, 0.75, 0.75, 1.0]),
-            OpenGLMaterial("Gold", [0.24725, 0.1995, 0.0745], [0.75164, 0.60648, 0.22648], [0.628281, 0.555802, 0.366065], 0.4, color=[1.0, 0.84, 0.0, 1.0])
+            OpenGLMaterial(
+                name="Gold",
+                ambient=[0.24725, 0.1995, 0.0745, 1.0],
+                diffuse=[0.75164, 0.60648, 0.22648, 1.0],
+                specular=[0.628281, 0.555802, 0.366065, 1.0],
+                shininess=35,
+                color=[1.0, 0.84, 0.0, 1.0],  # Złoty odcień
+            ),
+            OpenGLMaterial(
+                name="Red Plastic",
+                ambient=[0.0, 0.0, 0.0, 1.0],
+                diffuse=[0.5, 0.0, 0.0, 1.0],
+                specular=[0.7, 0.6, 0.6, 1.0],
+                shininess=40,
+                color=[1.0, 0.0, 0.0, 1.0],  # Czerwony odcień
+            ),
+            OpenGLMaterial(
+                name="Emerald",
+                ambient=[0.0215, 0.1745, 0.0215, 1.0],
+                diffuse=[0.07568, 0.61424, 0.07568, 1.0],
+                specular=[0.633, 0.727811, 0.633, 1.0],
+                shininess=20,
+                color=[0.1, 0.8, 0.1, 1.0],  # Zielony odcień
+            ),
         ]
+
 
         self.lights = [
             Light(position=[-2.0, 1.0, -10.0, 0.0],
-                  ambient=[1.0, 1.0, 1.0, 1.0],
-                  diffuse=[1.0, 1.0, 1.0, 1.0],
-                  specular=[1.0, 1.0, 1.0, 1.0],
-                  infinite=True,
-                  brightness=100),
-            Light(position=[1.0, 1.0, 1.0, 1.0],
-                  ambient=[1.0, 0.0, 1.0, 1.0],
-                  diffuse=[1.0, 0.0, 1.0, 1.0],
-                  specular=[1.0, 0.0, 1.0, 1.0],
-                  infinite=False,
-                  brightness=0.3,
-                  color=(1.0, 0.0, 1.0, 1.0))
+                ambient=[1.0, 1.0, 1.0, 1.0],
+                diffuse=[1.0, 1.0, 1.0, 1.0],
+                specular=[1.0, 1.0, 1.0, 1.0],
+                infinite=True,
+                brightness=0.8),
+            Light(position=[0.0, 1.0, 3.0, 0.0],
+                ambient=[1.0, 1.0, 1.0, 1.0],
+                diffuse=[1.0, 0.0, 1.0, 1.0],
+                specular=[1.0, 0.0, 1.0, 1.0],
+                color=[1.0, 0.0, 1.0, 1.0],
+                infinite=False,
+                brightness=1)
         ]
 
-        self.enabled_lights = [False, False]
+        self.enabled_lights = [True, False]
 
         self.base = Component(1.0, 0.6, 0.2, 0.6, origin_y=-0.1)  # Base rotates around Z-axis
         self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
