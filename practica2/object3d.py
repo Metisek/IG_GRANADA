@@ -68,6 +68,16 @@ class object3D(basic_object3D):
                 self.normals[vertex] += normal
         self.normals = self.normals / np.linalg.norm(self.normals, axis=1).reshape(-1, 1)
 
+    def calculate_face_normals(self):
+        self.normals = []
+        for triangle in self.triangles:
+            v0 = np.array(self.vertices[triangle[0]])
+            v1 = np.array(self.vertices[triangle[1]])
+            v2 = np.array(self.vertices[triangle[2]])
+            normal = np.cross(v1 - v0, v2 - v0)
+            normal = normal / np.linalg.norm(normal)
+            self.normals.append(normal)
+
     def calculate_vertex_normals(self):
         self.vertex_normals = [np.zeros(3) for _ in range(len(self.vertices))]
         for triangle in self.triangles:
@@ -88,20 +98,35 @@ class object3D(basic_object3D):
         if lights:
             glEnable(GL_LIGHTING)
 
-    def draw_flat_shaded(self, lights: list[Light]):
-        self.calculate_normals()
+
+    def draw_flat_shaded(self, lights: list[Light], material: OpenGLMaterial):
+        self.calculate_face_normals()
         self.apply_lights(lights)
+        material.apply()
         glShadeModel(GL_FLAT)
         glBegin(GL_TRIANGLES)
-        for triangle in self.triangles:
-            glNormal3fv(self.normals[triangle[0]])
+        for i, triangle in enumerate(self.triangles):
+            glNormal3fv(self.normals[i])
             glVertex3fv(self.vertices[triangle[0]])
-            glNormal3fv(self.normals[triangle[1]])
             glVertex3fv(self.vertices[triangle[1]])
-            glNormal3fv(self.normals[triangle[2]])
             glVertex3fv(self.vertices[triangle[2]])
         glEnd()
         glDisable(GL_LIGHTING)
+
+    # def draw_flat_shaded(self, lights: list[Light]):
+    #     self.calculate_normals()
+    #     self.apply_lights(lights)
+    #     glShadeModel(GL_FLAT)
+    #     glBegin(GL_TRIANGLES)
+    #     for triangle in self.triangles:
+    #         glNormal3fv(self.normals[triangle[0]])
+    #         glVertex3fv(self.vertices[triangle[0]])
+    #         glNormal3fv(self.normals[triangle[1]])
+    #         glVertex3fv(self.vertices[triangle[1]])
+    #         glNormal3fv(self.normals[triangle[2]])
+    #         glVertex3fv(self.vertices[triangle[2]])
+    #     glEnd()
+    #     glDisable(GL_LIGHTING)
 
     def draw_gouraud_shaded(self, lights: list[Light]):
         self.calculate_vertex_normals()

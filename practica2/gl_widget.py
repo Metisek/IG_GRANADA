@@ -311,18 +311,19 @@ class gl_widget(QOpenGLWidget):
 
             if self.solid_mode == DISPLAY_FLAT_SHADED:
                 active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
+                material = self.materials[self.material_index]
                 if self.object == OBJECT_TETRAHEDRON:
-                    self.tetrahedron.draw_flat_shaded(active_lights)
+                    self.tetrahedron.draw_flat_shaded(active_lights, material)
                 elif self.object == OBJECT_CUBE:
-                    self.cube.draw_flat_shaded(active_lights)
+                    self.cube.draw_flat_shaded(active_lights, material)
                 elif self.object == OBJECT_PLY and self.ply_object:
-                    self.ply_object.draw_flat_shaded(active_lights)
+                    self.ply_object.draw_flat_shaded(active_lights, material)
                 elif self.object == OBJECT_CONE:
-                    self.cone.draw_flat_shaded(active_lights)
+                    self.cone.draw_flat_shaded(active_lights, material)
                 elif self.object == OBJECT_CYLINDER:
-                    self.cylinder.draw_flat_shaded(active_lights)
+                    self.cylinder.draw_flat_shaded(active_lights, material)
                 elif self.object == OBJECT_SPHERE:
-                    self.sphere.draw_flat_shaded(active_lights)
+                    self.sphere.draw_flat_shaded(active_lights, material)
                 elif self.object == OBJECT_HIERARCHY:
                     self.model.draw(4, active_lights)
                 elif self.object == OBJECT_CHESSBOARD:
@@ -378,19 +379,25 @@ class gl_widget(QOpenGLWidget):
         self.chess_board = ChessBoard()
 
         self.materials = [
-            OpenGLMaterial("Bronze", [0.2125, 0.1275, 0.054], [0.714, 0.4284, 0.18144], [0.393548, 0.271906, 0.166721], 0.2),
-            OpenGLMaterial("Silver", [0.19225, 0.19225, 0.19225], [0.50754, 0.50754, 0.50754], [0.508273, 0.508273, 0.508273], 0.4),
-            OpenGLMaterial("Gold", [0.24725, 0.1995, 0.0745], [0.75164, 0.60648, 0.22648], [0.628281, 0.555802, 0.366065], 0.4)
+            OpenGLMaterial("Bronze", [0.2125, 0.1275, 0.054], [0.714, 0.4284, 0.18144], [0.393548, 0.271906, 0.166721], 0.2, color=[0.8, 0.5, 0.2, 1.0]),
+            OpenGLMaterial("Silver", [0.19225, 0.19225, 0.19225], [0.50754, 0.50754, 0.50754], [0.508273, 0.508273, 0.508273], 0.4, color=[0.75, 0.75, 0.75, 1.0]),
+            OpenGLMaterial("Gold", [0.24725, 0.1995, 0.0745], [0.75164, 0.60648, 0.22648], [0.628281, 0.555802, 0.366065], 0.4, color=[1.0, 0.84, 0.0, 1.0])
         ]
 
         self.lights = [
-            Light(position=[0.0, 0.0, 1.0, 0.0], ambient=[1.0, 1.0, 1.0, 1.0], diffuse=[1.0, 1.0, 1.0, 1.0], specular=[1.0, 1.0, 1.0, 1.0], infinite=True),
+            Light(position=[-2.0, 1.0, -10.0, 0.0],
+                  ambient=[1.0, 1.0, 1.0, 1.0],
+                  diffuse=[1.0, 1.0, 1.0, 1.0],
+                  specular=[1.0, 1.0, 1.0, 1.0],
+                  infinite=True,
+                  brightness=100),
             Light(position=[1.0, 1.0, 1.0, 1.0],
                   ambient=[1.0, 0.0, 1.0, 1.0],
                   diffuse=[1.0, 0.0, 1.0, 1.0],
                   specular=[1.0, 0.0, 1.0, 1.0],
                   infinite=False,
-                  shininess=15.0)
+                  brightness=0.3,
+                  color=(1.0, 0.0, 1.0, 1.0))
         ]
 
         self.enabled_lights = [False, False]
