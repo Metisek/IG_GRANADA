@@ -21,6 +21,7 @@ from objects.chess_board import ChessBoard
 from texture_utils import load_texture
 from lights import Light
 from materials import OpenGLMaterial
+import numpy as np
 
 X_MIN = -.1
 X_MAX = .1
@@ -60,6 +61,8 @@ class gl_widget(QOpenGLWidget):
         self.observer_angle_y = 0
         self.move_x = 0
         self.move_y = 0
+        self.move_z = 0
+        self.last_mouse_position = None
 
         self.draw_point = True
         self.draw_line = False
@@ -75,6 +78,7 @@ class gl_widget(QOpenGLWidget):
         self.light_angle = 0
 
         self.animation_active = False
+        self.projection_mode = 'perspective'
 
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -83,7 +87,81 @@ class gl_widget(QOpenGLWidget):
         self.timer.setInterval(0)
         self.timer.timeout.connect(self.animate)
 
+    def mousePressEvent(self, event):
+        self.last_mouse_position = event.pos()
+        if event.button() == Qt.MiddleButton:
+            self.setCursor(Qt.ClosedHandCursor)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.RightButton:
+            x, y = event.x(), event.y()
+            self.makeCurrent()
+            self.draw_selection()
+            selected_index = self.pick(x, y)
+            if selected_index < len(self.selected_object.triangles):
+                self.selected_object.selected_triangle = selected_index
+            else:
+                self.selected_object.selected_triangle = None
+            self.update()
+        elif event.button() == Qt.MiddleButton:
+            self.setCursor(Qt.ArrowCursor)
+
+    def mouseMoveEvent(self, event):
+        if self.last_mouse_position is not None:
+            dx = event.x() - self.last_mouse_position.x()
+            dy = event.y() - self.last_mouse_position.y()
+            if event.buttons() & Qt.RightButton:
+                self.observer_angle_x = (self.observer_angle_x + dy * ANGLE_STEP)
+                if self.observer_angle_x < -90:
+                    self.observer_angle_x = -90
+                elif self.observer_angle_x > 90:
+                    self.observer_angle_x = 90
+                self.observer_angle_y = (self.observer_angle_y + dx * ANGLE_STEP) % 360
+            elif event.buttons() & Qt.MiddleButton:
+                move_vector = np.array([dx * 0.01, -dy * 0.01, 0.0])
+                transformed_vector = self.transform_vector_by_rotation(move_vector)
+                self.move_x += transformed_vector[0]
+                self.move_y += transformed_vector[1]
+                self.move_z += transformed_vector[2]
+            self.update()
+        self.last_mouse_position = event.pos()
+
+
+    def transform_vector_by_rotation(self, vector):
+        rotation_matrix = self.create_rotation_matrix(self.observer_angle_x, self.observer_angle_y)
+        return np.dot(rotation_matrix, vector)
+
+    def create_rotation_matrix(self, angle_x, angle_y, angle_z=0):
+        angle_x, angle_y, angle_z = map(math.radians, [angle_x, angle_y, angle_z])
+        rx = np.array([
+            [1, 0, 0],
+            [0, math.cos(angle_x), -math.sin(angle_x)],
+            [0, math.sin(angle_x), math.cos(angle_x)]
+        ])
+        ry = np.array([
+            [math.cos(angle_y), 0, math.sin(angle_y)],
+            [0, 1, 0],
+            [-math.sin(angle_y), 0, math.cos(angle_y)]
+        ])
+        rz = np.array([
+            [math.cos(angle_z), -math.sin(angle_z), 0],
+            [math.sin(angle_z), math.cos(angle_z), 0],
+            [0, 0, 1]
+        ])
+        return np.dot(rz, np.dot(ry, rx))
+
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y() / 120  # Each step is 15 degrees
+        self.observer_distance *= (1.0 - delta * 0.1)
+        self.update()
+
     def keyPressEvent(self, event):
+
+        if event.key() == Qt.Key.Key_C:
+            self.projection_mode = 'perspective'
+        elif event.key() == Qt.Key.Key_V:
+            self.projection_mode = 'parallel'
+
         if event.key() == Qt.Key.Key_1:
             self.object = OBJECT_TETRAHEDRON
         elif event.key() == Qt.Key.Key_2:
@@ -222,36 +300,56 @@ class gl_widget(QOpenGLWidget):
     def change_projection(self):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        glFrustum(X_MIN, X_MAX, Y_MIN, Y_MAX, FRONT_PLANE_PERSPECTIVE, BACK_PLANE_PERSPECTIVE)
+        aspect_ratio = self.width() / self.height()
+        if self.projection_mode == 'perspective':
+            glFrustum(X_MIN, X_MAX, Y_MIN, Y_MAX, FRONT_PLANE_PERSPECTIVE, BACK_PLANE_PERSPECTIVE)
+        elif self.projection_mode == 'parallel':
+            glOrtho(X_MIN * self.observer_distance, X_MAX * self.observer_distance,
+                    Y_MIN * self.observer_distance, Y_MAX * self.observer_distance,
+                    FRONT_PLANE_PERSPECTIVE, BACK_PLANE_PERSPECTIVE)
+
+    def int_to_color(self, index):
+        r = (index & 0x00FF0000) >> 16
+        g = (index & 0x0000FF00) >> 8
+        b = (index & 0x000000FF)
+        return [r / 255.0, g / 255.0, b / 255.0]
+
+    def pick(self, x, y):
+        glReadBuffer(GL_BACK)
+        pixel = glReadPixels(x, self.height() - y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE)
+        r, g, b = pixel[0][0]
+        index = (r << 16) + (g << 8) + b
+        return index
 
     def change_observer(self):
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-        glTranslatef(self.move_x, self.move_y, -self.observer_distance)
+        glTranslatef(0, 0, -self.observer_distance)
         glRotatef(self.observer_angle_x, 1, 0, 0)
         glRotatef(self.observer_angle_y, 0, 1, 0)
+        glTranslatef(self.move_x, self.move_y, -self.move_z)
 
+    def get_object_selection(self):
+        if self.object == OBJECT_TETRAHEDRON:
+            return self.tetrahedron
+        elif self.object == OBJECT_CUBE:
+            return self.cube
+        elif self.object == OBJECT_PLY:
+            return self.ply_object
+        elif self.object == OBJECT_CONE:
+            return self.cone
+        elif self.object == OBJECT_CYLINDER:
+            return self.cylinder
+        elif self.object == OBJECT_SPHERE:
+            return self.sphere
+        elif self.object == OBJECT_HIERARCHY:
+            return self.model
+        elif self.object == OBJECT_CHESSBOARD:
+            return self.chess_board
 
     def draw_objects(self):
         self.axis.draw_line()
-        selected_object = None
-        if self.object == OBJECT_TETRAHEDRON:
-            selected_object = self.tetrahedron
-        elif self.object == OBJECT_CUBE:
-            selected_object = self.cube
-        elif self.object == OBJECT_PLY and self.ply_object:
-            selected_object = self.ply_object
-        elif self.object == OBJECT_CONE:
-            selected_object = self.cone
-        elif self.object == OBJECT_CYLINDER:
-            selected_object = self.cylinder
-        elif self.object == OBJECT_SPHERE:
-            selected_object = self.sphere
-        elif self.object == OBJECT_HIERARCHY:
-            selected_object = self.model
-        elif self.object == OBJECT_CHESSBOARD:
-            selected_object = self.chess_board
-
+        selected_object = self.get_object_selection()
         active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
         material = self.materials[self.material_index]
 
@@ -318,6 +416,15 @@ class gl_widget(QOpenGLWidget):
         if self.animation_active:
             self.animate()
 
+    def draw_selection(self):
+        glBegin(GL_TRIANGLES)
+        for i, triangle in enumerate(self.selected_object.triangles):
+            color = self.int_to_color(i)
+            glColor3fv(color)
+            for vertex_index in triangle:
+                glVertex3fv(self.selected_object.vertices[vertex_index])
+        glEnd()
+
     def texture_object_check(self):
         if self.object != OBJECT_CHESSBOARD:
             self.object = OBJECT_CHESSBOARD
@@ -336,6 +443,20 @@ class gl_widget(QOpenGLWidget):
         self.change_projection()
         self.change_observer()
         self.draw_objects()
+        self.display_selected_triangle_color()
+
+    def display_selected_triangle_color(self):
+        selected_object = self.get_object_selection()
+        if selected_object and selected_object.selected_triangle is not None:
+            triangle = selected_object.triangles[selected_object.selected_triangle]
+            color = self.int_to_color(selected_object.selected_triangle)
+            hex_color = '#{:02X}{:02X}{:02X}'.format(int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
+            painter = QPainter(self)
+            painter.begin(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setPen(Qt.black)
+            painter.drawText(self.width() - 100, self.height() - 20, hex_color)
+            painter.end()
 
     def resizeGL(self, width, height):
         glViewport(0, 0, width, height)
@@ -457,3 +578,10 @@ class gl_widget(QOpenGLWidget):
         vertices, _ = read_ply(file_name)
         profile_points = [(v[0], v[1]) for v in vertices if v[2] == 0]
         return profile_points
+
+    def pick(self, x, y):
+        glReadBuffer(GL_BACK)
+        pixel = glReadPixels(x, self.height() - y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE)
+        r, g, b = pixel[0][0]
+        index = (r << 16) + (g << 8) + b
+        return index
