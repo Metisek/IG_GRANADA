@@ -1,5 +1,6 @@
 # lights.py
-from OpenGL.GL import glEnable, glLightfv, glMaterialfv, glMaterialf, glShadeModel, GL_LIGHTING, GL_POSITION, GL_AMBIENT, GL_DIFFUSE, GL_SPECULAR, GL_SHININESS, GL_FLAT, GL_SMOOTH
+from OpenGL.GL import *
+from OpenGL.GLU import gluNewQuadric, gluSphere
 import numpy as np
 from basic_object3d import basic_object3D
 
@@ -29,6 +30,17 @@ class Light(basic_object3D):
         glLightfv(light_id, GL_AMBIENT, self.ambient)
         glLightfv(light_id, GL_DIFFUSE, [c * self.brightness for c in self.diffuse])
         glLightfv(light_id, GL_SPECULAR, [c * self.brightness for c in self.specular])
+        # Draw light as a circle in space
+        color = self.color
+        if color == (1.0, 1.0, 1.0, 1.0):
+            color = (0.0, 0.0, 0.0, 1.0)
+        glMaterialfv(GL_FRONT, GL_EMISSION, color)
+        glPushMatrix()
+        glTranslatef(*self.position)
+        quadric = gluNewQuadric()
+        gluSphere(quadric, 0.05, 16, 16)  # Small sphere with radius 0.05
+        glPopMatrix()
+        glMaterialfv(GL_FRONT, GL_EMISSION, [0.0, 0.0, 0.0, 1.0])
 
     def set_material(self, side, ambient, diffuse, specular, brightness):
         adjusted_diffuse = [c * brightness for c in diffuse]

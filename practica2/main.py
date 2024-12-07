@@ -41,4 +41,12 @@ if __name__ == '__main__':
     J - Activate/deactivate the first white light
     K - Activate/deactivate the second magenta light
     M - Consecutive selection between the three materials
+    C - Perspective projection
+    V - Orthogonal projection
+
+    MOUSE CONTROLS:
+    Right button + Mouse movement - Rotate the camera
+    Mouse wheel - Zoom in/out
+    Middle button + Mouse movement - Move the camera
+    Left button - Triangle picker
     """

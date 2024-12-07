@@ -19,12 +19,12 @@ class cone(object3D):
         self.vertices.append((0, height, 0))
 
         for i in range(num_segments):
-            self.triangles.append((i, (i + 1) % num_segments, num_segments))
+            self.triangles.append((i, num_segments, (i + 1) % num_segments))
 
         for i in range(num_segments):
-            self.triangles.append((i, (i + 1) % num_segments, num_segments + 1))
+            self.triangles.append((i, num_segments + 1, (i + 1) % num_segments))
 
         self.vertices.append((0, 0, 0))
 
         for i in range(num_segments):
-            self.triangles.append((i, (i + 1) % num_segments, num_segments))
+            self.triangles.append((i, num_segments, (i + 1) % num_segments))

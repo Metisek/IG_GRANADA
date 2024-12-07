@@ -2,7 +2,7 @@
 from object3d import object3D
 import math
 
-class sphere(object3D):
+class Sphere(object3D):
     def __init__(self, radius=1, num_segments=36):
         super().__init__()
         self.generate_sphere(radius, num_segments)
@@ -29,13 +29,13 @@ class sphere(object3D):
             for j in range(num_segments):
                 self.triangles.append((
                     i * num_segments + j,
-                    i * num_segments + (j + 1) % num_segments,
-                    (i + 1) * num_segments + j
+                    (i + 1) * num_segments + j,
+                    i * num_segments + (j + 1) % num_segments
                 ))
                 self.triangles.append((
                     (i + 1) * num_segments + j,
-                    i * num_segments + (j + 1) % num_segments,
-                    (i + 1) * num_segments + (j + 1) % num_segments
+                    (i + 1) * num_segments + (j + 1) % num_segments,
+                    i * num_segments + (j + 1) % num_segments
                 ))
 
         # Tworzenie trójkątów dla biegunu górnego
@@ -43,8 +43,8 @@ class sphere(object3D):
         for j in range(num_segments):
             self.triangles.append((
                 j,
-                (j + 1) % num_segments,
-                north_pole_index
+                north_pole_index,
+                (j + 1) % num_segments
             ))
 
         # Tworzenie trójkątów dla biegunu dolnego
@@ -52,6 +52,6 @@ class sphere(object3D):
         for j in range(num_segments):
             self.triangles.append((
                 (num_segments - 1) * num_segments + j,
+                south_pole_index,
                 (num_segments - 1) * num_segments + (j + 1) % num_segments,
-                south_pole_index
             ))

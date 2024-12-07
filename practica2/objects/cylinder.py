@@ -26,15 +26,15 @@ class cylinder(object3D):
 
         # Tworzenie trójkątów bocznych walca
         for i in range(num_segments):
-            self.triangles.append((i * 2, (i * 2 + 2) % (num_segments * 2), i * 2 + 1))
-            self.triangles.append((i * 2 + 1, (i * 2 + 2) % (num_segments * 2), (i * 2 + 3) % (num_segments * 2)))
+            self.triangles.append((i * 2, i * 2 + 1, (i * 2 + 2) % (num_segments * 2)))
+            self.triangles.append((i * 2 + 1, (i * 2 + 3) % (num_segments * 2), (i * 2 + 2) % (num_segments * 2)))
 
         # Tworzenie trójkątów podstawy (od środka do wierzchołków podstawy)
         center_bottom_index = num_segments * 2
         for i in range(num_segments):
-            self.triangles.append((i * 2, (i * 2 + 2) % (num_segments * 2), center_bottom_index))
+            self.triangles.append((i * 2, center_bottom_index, (i * 2 + 2) % (num_segments * 2),))
 
         # Tworzenie trójkątów góry (od środka do wierzchołków góry)
         center_top_index = num_segments * 2 + 1
         for i in range(num_segments):
-            self.triangles.append((i * 2 + 1, center_top_index, (i * 2 + 3) % (num_segments * 2)))
+            self.triangles.append((i * 2 + 1, (i * 2 + 3) % (num_segments * 2), center_top_index))

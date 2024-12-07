@@ -14,14 +14,18 @@ from file_ply import read_ply, PLYObject
 from object3d import object3D
 from objects.cone import cone
 from objects.cylinder import cylinder
-from objects.sphere import sphere
-from objects.hierarchial_model import HierarchicalModel, Component
+from objects.sphere import Sphere
+from objects.hierarchial_model import HierarchicalModel
+from objects.component import Component
 from file_ply import RevolutionObject
 from objects.chess_board import ChessBoard
 from texture_utils import load_texture
 from lights import Light
 from materials import OpenGLMaterial
 import numpy as np
+
+from OpenGL.GLU import gluUnProject
+from PySide6.QtGui import QPainter
 
 X_MIN = -.1
 X_MAX = .1
@@ -63,6 +67,8 @@ class gl_widget(QOpenGLWidget):
         self.move_y = 0
         self.move_z = 0
         self.last_mouse_position = None
+        self.selected_triangle = None
+        self.color = (255, 255, 255)
 
         self.draw_point = True
         self.draw_line = False
@@ -89,21 +95,21 @@ class gl_widget(QOpenGLWidget):
 
     def mousePressEvent(self, event):
         self.last_mouse_position = event.pos()
-        if event.button() == Qt.MiddleButton:
+        if event.button() == Qt.LeftButton:
+            x, y = event.x(), event.y()
+            self.makeCurrent()
+            selected_index =  self.pick(x, y)
+            selected_object = self.get_object_selection()
+            if selected_index != -1:
+                selected_object.selected_triangle = selected_index
+            else:
+                selected_object.selected_triangle = None
+            self.update()
+        elif event.button() == Qt.MiddleButton:
             self.setCursor(Qt.ClosedHandCursor)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.RightButton:
-            x, y = event.x(), event.y()
-            self.makeCurrent()
-            self.draw_selection()
-            selected_index = self.pick(x, y)
-            if selected_index < len(self.selected_object.triangles):
-                self.selected_object.selected_triangle = selected_index
-            else:
-                self.selected_object.selected_triangle = None
-            self.update()
-        elif event.button() == Qt.MiddleButton:
+        if event.button() == Qt.MiddleButton:
             self.setCursor(Qt.ArrowCursor)
 
     def mouseMoveEvent(self, event):
@@ -199,56 +205,14 @@ class gl_widget(QOpenGLWidget):
         if event.key() == Qt.Key.Key_PageDown or event.key() == Qt.Key.Key_Minus:
             self.observer_distance *= DISTANCE_FACTOR
 
-        # Hierarchial model movement
+        # Hierarchial model and light movement
         if event.key() == Qt.Key.Key_A:
             self.animation_active = not self.animation_active
             if self.animation_active:
                 self.start_animation()
-        # Base rotation
-        if event.key() == Qt.Key_Q:
-            self.arm1.angle_yaw += self.angle_step
-        elif event.key() == Qt.Key_W:
-            self.arm1.angle_yaw -= self.angle_step
 
-        # Main arm up/down
-        if event.key() == Qt.Key_S:
-            self.arm2.angle_pitch += self.angle_step
-        elif event.key() == Qt.Key_D:
-            self.arm2.angle_pitch -= self.angle_step
-
-        # Secondary arm up/down
-        if event.key() == Qt.Key_Z:
-            self.arm3.angle_pitch += self.angle_step
-        elif event.key() == Qt.Key_X:
-            self.arm3.angle_pitch -= self.angle_step
-
-        # Modify rotation speed for base
-        if event.key() == Qt.Key.Key_E:
-            self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
-            if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
-                self.arm1.speed_yaw = self.arm1.limit_speed_yaw
-        elif event.key() == Qt.Key.Key_R:
-            self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
-            if self.arm1.speed_yaw < 0:
-                self.arm1.speed_yaw = 0
-
-        # Modify rotation speed for second and third degrees of freedom
-        if event.key() == Qt.Key.Key_T:
-            self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
-            if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
-                self.arm2.angle_pitch = self.arm2.limit_speed_pitch
-        elif event.key() == Qt.Key.Key_Y:
-            self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
-            if self.arm2.angle_pitch < 0:
-                self.arm2.angle_pitch = 0
-        if event.key() == Qt.Key.Key_U:
-            self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
-            if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
-                self.arm3.angle_pitch = self.arm3.limit_speed_pitch
-        elif event.key() == Qt.Key.Key_I:
-            self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
-            if self.arm3.angle_pitch < 0:
-                self.arm3.angle_pitch = 0
+        # Hierarchial model movement as a method
+        self.move_hierarchial_model(event)
 
         # Materials
         if event.key() == Qt.Key.Key_M:
@@ -283,8 +247,8 @@ class gl_widget(QOpenGLWidget):
             self.arm1.angle_yaw += self.angle_step
             self.update()
             self.light_angle = (self.light_angle + self.angle_step) % 360
-            self.lights[1].position[0] = math.cos(math.radians(self.light_angle)) * 1.0
-            self.lights[1].position[2] = math.sin(math.radians(self.light_angle)) * 1.0
+            self.lights[1].position[0] = math.cos(math.radians(self.light_angle)) * 2.0
+            self.lights[1].position[2] = math.sin(math.radians(self.light_angle)) * 2.0
         else:
             self.timer.stop()
 
@@ -307,19 +271,6 @@ class gl_widget(QOpenGLWidget):
             glOrtho(X_MIN * self.observer_distance, X_MAX * self.observer_distance,
                     Y_MIN * self.observer_distance, Y_MAX * self.observer_distance,
                     FRONT_PLANE_PERSPECTIVE, BACK_PLANE_PERSPECTIVE)
-
-    def int_to_color(self, index):
-        r = (index & 0x00FF0000) >> 16
-        g = (index & 0x0000FF00) >> 8
-        b = (index & 0x000000FF)
-        return [r / 255.0, g / 255.0, b / 255.0]
-
-    def pick(self, x, y):
-        glReadBuffer(GL_BACK)
-        pixel = glReadPixels(x, self.height() - y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE)
-        r, g, b = pixel[0][0]
-        index = (r << 16) + (g << 8) + b
-        return index
 
     def change_observer(self):
         glMatrixMode(GL_MODELVIEW)
@@ -443,20 +394,6 @@ class gl_widget(QOpenGLWidget):
         self.change_projection()
         self.change_observer()
         self.draw_objects()
-        self.display_selected_triangle_color()
-
-    def display_selected_triangle_color(self):
-        selected_object = self.get_object_selection()
-        if selected_object and selected_object.selected_triangle is not None:
-            triangle = selected_object.triangles[selected_object.selected_triangle]
-            color = self.int_to_color(selected_object.selected_triangle)
-            hex_color = '#{:02X}{:02X}{:02X}'.format(int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
-            painter = QPainter(self)
-            painter.begin(self)
-            painter.setRenderHint(QPainter.Antialiasing)
-            painter.setPen(Qt.black)
-            painter.drawText(self.width() - 100, self.height() - 20, hex_color)
-            painter.end()
 
     def resizeGL(self, width, height):
         glViewport(0, 0, width, height)
@@ -471,7 +408,8 @@ class gl_widget(QOpenGLWidget):
         self.cube = cube()
         self.cone = cone()
         self.cylinder = cylinder()
-        self.sphere = sphere(1, 12)
+        self.sphere = Sphere(1, 12)
+        self.init_hierarchial_model()
         self.chess_board = ChessBoard()
 
         self.materials = [
@@ -512,13 +450,13 @@ class gl_widget(QOpenGLWidget):
 
 
         self.lights = [
-            Light(position=[-2.0, 1.0, -10.0, 0.0],
+            Light(position=[-2.0, 1.0, -10.0],
                 ambient=[1.0, 1.0, 1.0, 1.0],
                 diffuse=[1.0, 1.0, 1.0, 1.0],
                 specular=[1.0, 1.0, 1.0, 1.0],
                 infinite=True,
-                brightness=0.8),
-            Light(position=[0.0, 1.0, 3.0, 0.0],
+                brightness=1),
+            Light(position=[0.0, 1.0, 3.0],
                 ambient=[1.0, 1.0, 1.0, 1.0],
                 diffuse=[1.0, 0.0, 1.0, 1.0],
                 specular=[1.0, 0.0, 1.0, 1.0],
@@ -528,22 +466,6 @@ class gl_widget(QOpenGLWidget):
         ]
 
         self.enabled_lights = [True, False]
-
-        self.base = Component(1.0, 0.6, 0.2, 0.6, origin_y=-0.1)  # Base rotates around Z-axis
-        self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
-        self.arm2 = Component(1.0, 0.25, 0.6, 0.25, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,80) ,origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
-        self.arm3 = Component(1.0, 0.2, 0.6, 0.2, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
-        self.gripper1 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
-        self.gripper2 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
-
-        # Set up hierarchy
-        self.base.children.append(self.arm1)
-        self.arm1.children.append(self.arm2)
-        self.arm2.children.append(self.arm3)
-        self.arm3.children.append(self.gripper1)
-        self.arm3.children.append(self.gripper2)
-        self.model = HierarchicalModel()
-        self.model.components.append(self.base)
 
         # Load texture
         self.texture_id = load_texture("chessboard_texture.png")
@@ -579,9 +501,179 @@ class gl_widget(QOpenGLWidget):
         profile_points = [(v[0], v[1]) for v in vertices if v[2] == 0]
         return profile_points
 
+   # gl_widget.py
     def pick(self, x, y):
-        glReadBuffer(GL_BACK)
-        pixel = glReadPixels(x, self.height() - y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE)
-        r, g, b = pixel[0][0]
-        index = (r << 16) + (g << 8) + b
-        return index
+        self.makeCurrent()
+        # Frame Buffer Object to do the off-screen rendering
+        FBO = glGenFramebuffers(1)
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO)
+
+        # Texture for drawing
+        color_texture = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, color_texture)
+        # RGBA8
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, self.width(), self.height())
+        # This implies that there is no mip mapping
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+        # Texture for computing the depth
+        depth_texture = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, depth_texture)
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT24, self.width(), self.height())
+
+        # Attachment of textures to the FBO
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_texture, 0)
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_texture, 0)
+
+        # OpenGL will draw to these buffers (only one in this case)
+        draw_buffers = [GL_COLOR_ATTACHMENT0]
+        glDrawBuffers(1, draw_buffers)
+
+        # Draw the scene for selection
+        self.clear_window()
+        self.change_projection()
+        self.change_observer()
+        selected_object = self.get_object_selection()
+        selected_object.draw_with_ids()
+
+        # Get the pixel color
+        glReadBuffer(GL_COLOR_ATTACHMENT0)
+        glPixelStorei(GL_PACK_ALIGNMENT, 1)
+        color = glReadPixels(x, self.height() - y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE)
+
+        # Convert from RGB to identifier
+        r, g, b, a = color[0], color[1], color[2], color[3]
+        identifier = (r << 16) | (g << 8) | b
+
+        # Update the identifier of the selected part in the object
+        selected_object.selected_triangle = identifier
+
+        glDeleteTextures(1, [color_texture])
+        glDeleteTextures(1, [depth_texture])
+        glDeleteFramebuffers(1, [FBO])
+        # The normal framebuffer takes control of drawing
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self.defaultFramebufferObject())
+
+        return identifier
+
+    # Old hierarchial model (robot arm)
+    def init_hierarchial_model(self):
+        self.base = Component(object_properties={
+            "length":0.6,
+            "width":0.2,
+            "height":0.6,
+        }, object_type='CUBOID', origin_y=-0.1)  # Base rotates around Z-axis
+
+        self.arm1 = Component(object_properties={
+            "length":0.3,
+            "width":0.3,
+            "height":0.3,
+            }, object_type="CUBOID",
+            angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
+
+        self.arm2 = Component(object_properties={
+            "length":0.25,
+            "width":0.6,
+            "height":0.25
+            }, object_type='CUBOID',
+            angle_pitch=30, rotation_axis_pitch=True,
+            limit_pitch=(0,80), origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
+
+        self.arm3 = Component(object_properties={
+            "length":0.2,
+            "width":0.6,
+            "height":0.2
+            }, object_type='CUBOID',
+            angle_pitch=30, rotation_axis_pitch=True,
+            limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
+        self.gripper1 = Component(object_properties={
+            "length":0.05,
+            "width":0.2,
+            "height":0.05
+            }, object_type='CUBOID',
+            origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
+        self.gripper2 = Component(object_properties={
+            "length":0.05,
+            "width":0.2,
+            "height":0.05
+            }, object_type='CUBOID',
+            origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
+
+        # Set up hierarchy
+        self.base.children.append(self.arm1)
+        self.arm1.children.append(self.arm2)
+        self.arm2.children.append(self.arm3)
+        self.arm3.children.append(self.gripper1)
+        self.arm3.children.append(self.gripper2)
+        self.model = HierarchicalModel()
+        self.model.components.append(self.base)
+
+    def move_hierarchial_model(self, event):
+        # Base rotation
+        if event.key() == Qt.Key_Q:
+            self.arm1.angle_yaw += self.angle_step
+        elif event.key() == Qt.Key_W:
+            self.arm1.angle_yaw -= self.angle_step
+
+        # Main arm up/down
+        if event.key() == Qt.Key_S:
+            self.arm2.angle_pitch += self.angle_step
+        elif event.key() == Qt.Key_D:
+            self.arm2.angle_pitch -= self.angle_step
+
+        # Secondary arm up/down
+        if event.key() == Qt.Key_Z:
+            self.arm3.angle_pitch += self.angle_step
+        elif event.key() == Qt.Key_X:
+            self.arm3.angle_pitch -= self.angle_step
+
+        # Modify rotation speed for base
+        if event.key() == Qt.Key.Key_E:
+            self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
+            if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
+                self.arm1.speed_yaw = self.arm1.limit_speed_yaw
+        elif event.key() == Qt.Key.Key_R:
+            self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
+            if self.arm1.speed_yaw < 0:
+                self.arm1.speed_yaw = 0
+
+        # Modify rotation speed for second and third degrees of freedom
+        if event.key() == Qt.Key.Key_T:
+            self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
+            if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
+                self.arm2.angle_pitch = self.arm2.limit_speed_pitch
+        elif event.key() == Qt.Key.Key_Y:
+            self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
+            if self.arm2.angle_pitch < 0:
+                self.arm2.angle_pitch = 0
+        if event.key() == Qt.Key.Key_U:
+            self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
+            if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
+                self.arm3.angle_pitch = self.arm3.limit_speed_pitch
+        elif event.key() == Qt.Key.Key_I:
+            self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
+            if self.arm3.angle_pitch < 0:
+                self.arm3.angle_pitch = 0
+
+
+
+    # Old hierarchial model
+    # def init_hierarchial_model(self):
+    #     self.base = Component(object_properties=
+    #                           object_type='CUBOID'
+    #                           , origin_y=-0.1)  # Base rotates around Z-axis
+    #     self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
+    #     self.arm2 = Component(1.0, 0.25, 0.6, 0.25, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,80) ,origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
+    #     self.arm3 = Component(1.0, 0.2, 0.6, 0.2, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
+    #     self.gripper1 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
+    #     self.gripper2 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
+
+    #     # Set up hierarchy
+    #     self.base.children.append(self.arm1)
+    #     self.arm1.children.append(self.arm2)
+    #     self.arm2.children.append(self.arm3)
+    #     self.arm3.children.append(self.gripper1)
+    #     self.arm3.children.append(self.gripper2)
+    #     self.model = HierarchicalModel()
+    #     self.model.components.append(self.base)

@@ -204,3 +204,18 @@ class object3D(basic_object3D):
         glBindTexture(GL_TEXTURE_2D, 0)
         glEnable(GL_LIGHTING)
 
+    def draw_with_ids(self):
+        glBegin(GL_TRIANGLES)
+        for i, triangle in enumerate(self.triangles):
+            color = self.int_to_color(i)
+            glColor3fv(color)
+            for vertex_index in triangle:
+                glVertex3fv(self.vertices[vertex_index])
+        glEnd()
+
+    def int_to_color(self, i):
+        r = (i & 0xFF0000) >> 16
+        g = (i & 0x00FF00) >> 8
+        b = (i & 0x0000FF)
+        return [r / 255.0, g / 255.0, b / 255.0]
+
