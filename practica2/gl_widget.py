@@ -169,22 +169,23 @@ class gl_widget(QOpenGLWidget):
         elif event.key() == Qt.Key.Key_V:
             self.projection_mode = 'parallel'
 
-        if event.key() == Qt.Key.Key_1:
-            self.object = OBJECT_TETRAHEDRON
-        elif event.key() == Qt.Key.Key_2:
-            self.object = OBJECT_CUBE
-        elif event.key() == Qt.Key.Key_6 and self.ply_object is not None:
-            self.object = OBJECT_PLY
-        elif event.key() == Qt.Key.Key_3:
-            self.object = OBJECT_CONE
-        elif event.key() == Qt.Key.Key_4:
-            self.object = OBJECT_CYLINDER
-        elif event.key() == Qt.Key.Key_5:
-            self.object = OBJECT_SPHERE
-        elif event.key() == Qt.Key.Key_7:
-            self.object = OBJECT_HIERARCHY
-        elif event.key() == Qt.Key.Key_8:
-            self.object = OBJECT_CHESSBOARD
+        if self.solid_mode not in {DISPLAY_UNLIT_TEXTURE, DISPLAY_TEXTURE_FLAT, DISPLAY_TEXTURE_GOURAUD}:
+            if event.key() == Qt.Key.Key_1:
+                self.object = OBJECT_TETRAHEDRON
+            elif event.key() == Qt.Key.Key_2:
+                self.object = OBJECT_CUBE
+            elif event.key() == Qt.Key.Key_6 and self.ply_object is not None:
+                self.object = OBJECT_PLY
+            elif event.key() == Qt.Key.Key_3:
+                self.object = OBJECT_CONE
+            elif event.key() == Qt.Key.Key_4:
+                self.object = OBJECT_CYLINDER
+            elif event.key() == Qt.Key.Key_5:
+                self.object = OBJECT_SPHERE
+            elif event.key() == Qt.Key.Key_7:
+                self.object = OBJECT_HIERARCHY
+            elif event.key() == Qt.Key.Key_8:
+                self.object = OBJECT_CHESSBOARD
 
         if event.key() == Qt.Key.Key_P:
             self.draw_point = not self.draw_point
@@ -242,16 +243,6 @@ class gl_widget(QOpenGLWidget):
             self.solid_mode = DISPLAY_TEXTURE_GOURAUD
 
         self.update()
-
-    def animate(self):
-        if self.animation_active:
-            self.arm1.angle_yaw += self.angle_step
-            self.update()
-            self.light_angle = (self.light_angle + self.angle_step) % 360
-            self.lights[1].position[0] = math.cos(math.radians(self.light_angle)) * 2.0
-            self.lights[1].position[2] = math.sin(math.radians(self.light_angle)) * 2.0
-        else:
-            self.timer.stop()
 
     def start_animation(self):
         if not hasattr(self, 'timer'):
@@ -333,55 +324,54 @@ class gl_widget(QOpenGLWidget):
 
     def draw_objects(self):
         self.axis.draw_line()
-        selected_object = self.get_object_selection()
+        self.selected_object = self.get_object_selection()
         material = self.materials[self.material_index]
-        active_lights = [light for i, light in enumerate(self.lights) if self.enabled_lights[i]]
 
         if self.solid_enabled:
             if self.solid_mode == DISPLAY_SOLID:
                 glColor3fv(common.BLUE)
                 if self.object != OBJECT_HIERARCHY:
-                    selected_object.draw_fill()
+                    self.selected_object.draw_fill()
                 else:
                     self.model.draw(2)
 
             elif self.solid_mode == DISPLAY_CHESS:
                 if self.object != OBJECT_HIERARCHY:
-                    selected_object.draw_chess()
+                    self.selected_object.draw_chess()
                 else:
                     self.model.draw(3)
 
             if self.solid_mode == DISPLAY_FLAT_SHADED:
                 glEnable(GL_LIGHTING)
                 if self.object != OBJECT_HIERARCHY:
-                    selected_object.draw_flat_shaded(material)
+                    self.selected_object.draw_flat_shaded(material)
                 else:
                     self.model.draw(4, material)
 
             if self.solid_mode == DISPLAY_GOURAUD_SHADED:
                 glEnable(GL_LIGHTING)
                 if self.object != OBJECT_HIERARCHY:
-                    selected_object.draw_gouraud_shaded(material)
+                    self.selected_object.draw_gouraud_shaded(material)
                 else:
                     self.model.draw(5, material)
 
             if self.solid_mode == DISPLAY_UNLIT_TEXTURE:
                 check = self.texture_object_check()
-                selected_object.draw_unlit_texture(self.clear_white_material)
+                self.selected_object.draw_unlit_texture(self.clear_white_material)
                 if check:
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_FLAT:
                 glEnable(GL_LIGHTING)
                 check = self.texture_object_check()
-                selected_object.draw_texture_flat_shaded(self.clear_white_material)
+                self.selected_object.draw_texture_flat_shaded(self.clear_white_material)
                 if check:
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_GOURAUD:
                 glEnable(GL_LIGHTING)
                 check = self.texture_object_check()
-                selected_object.draw_texture_gouraud_shaded(self.clear_white_material)
+                self.selected_object.draw_texture_gouraud_shaded(self.clear_white_material)
                 if check:
                     self.update()
 
@@ -390,7 +380,7 @@ class gl_widget(QOpenGLWidget):
             glPointSize(5)
             glColor3fv(common.BLACK)
             if self.object != OBJECT_HIERARCHY:
-                selected_object.draw_point()
+                self.selected_object.draw_point()
             else:
                 self.model.draw(0)
 
@@ -398,7 +388,7 @@ class gl_widget(QOpenGLWidget):
             glLineWidth(3)
             glColor3fv(common.MAGENTA)
             if self.object != OBJECT_HIERARCHY:
-                selected_object.draw_line()
+                self.selected_object.draw_line()
             else:
                 self.model.draw(1)
 
@@ -482,7 +472,7 @@ class gl_widget(QOpenGLWidget):
             ambient=[0.0, 0.0, 0.0, 1.0],
             diffuse=[1.0, 1.0, 1.0, 1.0],
             specular=[1.0, 1.0, 1.0, 1.0],
-            shininess=100,
+            shininess=50,
             color=[1.0, 1.0, 1.0, 1.0]
         )
 
@@ -595,101 +585,224 @@ class gl_widget(QOpenGLWidget):
 
         return identifier
 
-    # Old hierarchial model (robot arm)
+
+    # New hierarchial model (simple helicopter with an arm below)
     def init_hierarchial_model(self):
         self.base = Component(object_properties={
-            "length":0.6,
-            "width":0.2,
-            "height":0.6,
-        }, object_type='CUBOID', origin_y=-0.1)  # Base rotates around Z-axis
+            "file_name": "helicopter_ply/base.ply",
+        }, object_type='PLY', origin_y=0.1, origin_x=0.7, origin_z=-1.3,
+            pos_x=0, move_axis_x=True, limit_move_x=(-5, 5),
+            speed_move_x=0.1, limit_speed_move_x=0.5)
 
-        self.arm1 = Component(object_properties={
+        self.main_rotor = Component(object_properties={
+            "file_name": "helicopter_ply/rotor_big.ply",
+            }, object_type='PLY', origin_y=-0.4, offset_y=3.15, offset_x=-0.84,
+           rotation_axis_yaw=True, angle_yaw=0)
+
+        self.side_motor = Component(object_properties={
+            "file_name": "helicopter_ply/rotor_small.ply",
+            }, object_type='PLY', offset_y=1.73, offset_x=-3.5, offset_z=-0.7,
+            rotation_axis_roll=True, angle_roll=0)
+
+        self.arm_base = Component(object_properties={
             "length":0.3,
-            "width":0.3,
+            "width":0.8,
             "height":0.3,
-            }, object_type="CUBOID",
-            angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
+            }, object_type='CUBOID', origin_y=-0.4,
+            offset_y=0.66, offset_x=-0.7, offset_z=-0.03)
 
-        self.arm2 = Component(object_properties={
+        self.arm_extendable = Component(object_properties={
             "length":0.25,
-            "width":0.6,
-            "height":0.25
-            }, object_type='CUBOID',
-            angle_pitch=30, rotation_axis_pitch=True,
-            limit_pitch=(0,80), origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
+            "width":0.8,
+            "height":0.25,
+            }, object_type='CUBOID', origin_y=-0.4, offset_y=0, pos_y=-0.8,
+            scale_axis_y=True, limit_scale_y=(0.3, 3), speed_scale_y=0.1, scale_y=1,
+            rotation_axis_yaw=True, angle_yaw=0)
 
-        self.arm3 = Component(object_properties={
-            "length":0.2,
-            "width":0.6,
-            "height":0.2
-            }, object_type='CUBOID',
-            angle_pitch=30, rotation_axis_pitch=True,
-            limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
-        self.gripper1 = Component(object_properties={
+        self.arm_end_gripper_1 = Component(object_properties={
             "length":0.05,
             "width":0.2,
-            "height":0.05
-            }, object_type='CUBOID',
-            origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
-        self.gripper2 = Component(object_properties={
+            "height":0.05,
+        }, object_type='CUBOID', origin_y=0.1, offset_y=-1, offset_x=0.08)
+
+        self.arm_end_gripper_2 = Component(object_properties={
             "length":0.05,
             "width":0.2,
-            "height":0.05
-            }, object_type='CUBOID',
-            origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
+            "height":0.05,
+        }, object_type='CUBOID', origin_y=0.1, offset_y=-1, offset_x=-0.08)
 
-        # Set up hierarchy
-        self.base.children.append(self.arm1)
-        self.arm1.children.append(self.arm2)
-        self.arm2.children.append(self.arm3)
-        self.arm3.children.append(self.gripper1)
-        self.arm3.children.append(self.gripper2)
+        self.base.children.append(self.main_rotor)
+        self.base.children.append(self.side_motor)
+        self.base.children.append(self.arm_base)
+        self.arm_base.children.append(self.arm_extendable)
+        self.arm_extendable.children.append(self.arm_end_gripper_1)
+        self.arm_extendable.children.append(self.arm_end_gripper_2)
         self.model = HierarchicalModel()
         self.model.components.append(self.base)
 
+    def animate(self):
+        if self.animation_active:
+            self.main_rotor.angle_yaw += self.angle_step * 12
+            self.side_motor.angle_roll += self.angle_step * 8
+            self.update()
+            self.light_angle = (self.light_angle + self.angle_step) % 360
+            self.lights[1].position[0] = math.cos(math.radians(self.light_angle)) * 2.5
+            self.lights[1].position[2] = math.sin(math.radians(self.light_angle)) * 2.5
+        else:
+            self.timer.stop()
+
     def move_hierarchial_model(self, event):
-        # Base rotation
+        # Base x movement
         if event.key() == Qt.Key_Q:
-            self.arm1.angle_yaw += self.angle_step
+            self.base.pos_x += self.base.speed_move_x
         elif event.key() == Qt.Key_W:
-            self.arm1.angle_yaw -= self.angle_step
+            self.base.pos_x -= self.base.speed_move_x
 
-        # Main arm up/down
+        # Helicopter arm scaling
         if event.key() == Qt.Key_S:
-            self.arm2.angle_pitch += self.angle_step
+            self.arm_extendable.scale_y += self.arm_extendable.speed_scale_y
         elif event.key() == Qt.Key_D:
-            self.arm2.angle_pitch -= self.angle_step
+            self.arm_extendable.scale_y -= self.arm_extendable.speed_scale_y
 
-        # Secondary arm up/down
+        # Helicopter arm rotation
         if event.key() == Qt.Key_Z:
-            self.arm3.angle_pitch += self.angle_step
+            self.arm_extendable.angle_yaw += self.arm_extendable.speed_yaw
         elif event.key() == Qt.Key_X:
-            self.arm3.angle_pitch -= self.angle_step
+            self.arm_extendable.angle_yaw -= self.arm_extendable.speed_yaw
 
-        # Modify rotation speed for base
-        if event.key() == Qt.Key.Key_E:
-            self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
-            if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
-                self.arm1.speed_yaw = self.arm1.limit_speed_yaw
-        elif event.key() == Qt.Key.Key_R:
-            self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
-            if self.arm1.speed_yaw < 0:
-                self.arm1.speed_yaw = 0
+        # # Modify rotation speed for base
+        # if event.key() == Qt.Key.Key_E:
+        #     self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
+        #     if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
+        #         self.arm1.speed_yaw = self.arm1.limit_speed_yaw
+        # elif event.key() == Qt.Key.Key_R:
+        #     self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
+        #     if self.arm1.speed_yaw < 0:
+        #         self.arm1.speed_yaw = 0
 
-        # Modify rotation speed for second and third degrees of freedom
-        if event.key() == Qt.Key.Key_T:
-            self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
-            if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
-                self.arm2.angle_pitch = self.arm2.limit_speed_pitch
-        elif event.key() == Qt.Key.Key_Y:
-            self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
-            if self.arm2.angle_pitch < 0:
-                self.arm2.angle_pitch = 0
-        if event.key() == Qt.Key.Key_U:
-            self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
-            if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
-                self.arm3.angle_pitch = self.arm3.limit_speed_pitch
-        elif event.key() == Qt.Key.Key_I:
-            self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
-            if self.arm3.angle_pitch < 0:
-                self.arm3.angle_pitch = 0
+        # # Modify rotation speed for second and third degrees of freedom
+        # if event.key() == Qt.Key.Key_T:
+        #     self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
+        #     if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
+        #         self.arm2.angle_pitch = self.arm2.limit_speed_pitch
+        # elif event.key() == Qt.Key.Key_Y:
+        #     self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
+        #     if self.arm2.angle_pitch < 0:
+        #         self.arm2.angle_pitch = 0
+        # if event.key() == Qt.Key.Key_U:
+        #     self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
+        #     if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
+        #         self.arm3.angle_pitch = self.arm3.limit_speed_pitch
+        # elif event.key() == Qt.Key.Key_I:
+        #     self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
+        #     if self.arm3.angle_pitch < 0:
+        #         self.arm3.angle_pitch = 0
+
+    # Old hierarchial model (robot arm)
+    # def init_hierarchial_model(self):
+    #     self.base = Component(object_properties={
+    #         "length":0.6,
+    #         "width":0.2,
+    #         "height":0.6,
+    #     }, object_type='CUBOID', origin_y=-0.1)  # Base rotates around Z-axis
+
+    #     self.arm1 = Component(object_properties={
+    #         "length":0.3,
+    #         "width":0.3,
+    #         "height":0.3,
+    #         }, object_type="CUBOID",
+    #         angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
+
+    #     self.arm2 = Component(object_properties={
+    #         "length":0.25,
+    #         "width":0.6,
+    #         "height":0.25
+    #         }, object_type='CUBOID',
+    #         angle_pitch=30, rotation_axis_pitch=True,
+    #         limit_pitch=(0,80), origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
+
+    #     self.arm3 = Component(object_properties={
+    #         "length":0.2,
+    #         "width":0.6,
+    #         "height":0.2
+    #         }, object_type='CUBOID',
+    #         angle_pitch=30, rotation_axis_pitch=True,
+    #         limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
+    #     self.gripper1 = Component(object_properties={
+    #         "length":0.05,
+    #         "width":0.2,
+    #         "height":0.05
+    #         }, object_type='CUBOID',
+    #         origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
+    #     self.gripper2 = Component(object_properties={
+    #         "length":0.05,
+    #         "width":0.2,
+    #         "height":0.05
+    #         }, object_type='CUBOID',
+    #         origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
+
+    #     # Set up hierarchy
+    #     self.base.children.append(self.arm1)
+    #     self.arm1.children.append(self.arm2)
+    #     self.arm2.children.append(self.arm3)
+    #     self.arm3.children.append(self.gripper1)
+    #     self.arm3.children.append(self.gripper2)
+    #     self.model = HierarchicalModel()
+    #     self.model.components.append(self.base)
+
+    # def move_hierarchial_model(self, event):
+    #     # Base rotation
+    #     if event.key() == Qt.Key_Q:
+    #         self.arm1.angle_yaw += self.angle_step
+    #     elif event.key() == Qt.Key_W:
+    #         self.arm1.angle_yaw -= self.angle_step
+
+    #     # Main arm up/down
+    #     if event.key() == Qt.Key_S:
+    #         self.arm2.angle_pitch += self.angle_step
+    #     elif event.key() == Qt.Key_D:
+    #         self.arm2.angle_pitch -= self.angle_step
+
+    #     # Secondary arm up/down
+    #     if event.key() == Qt.Key_Z:
+    #         self.arm3.angle_pitch += self.angle_step
+    #     elif event.key() == Qt.Key_X:
+    #         self.arm3.angle_pitch -= self.angle_step
+
+    #     # Modify rotation speed for base
+    #     if event.key() == Qt.Key.Key_E:
+    #         self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
+    #         if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
+    #             self.arm1.speed_yaw = self.arm1.limit_speed_yaw
+    #     elif event.key() == Qt.Key.Key_R:
+    #         self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
+    #         if self.arm1.speed_yaw < 0:
+    #             self.arm1.speed_yaw = 0
+
+    #     # Modify rotation speed for second and third degrees of freedom
+    #     if event.key() == Qt.Key.Key_T:
+    #         self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
+    #         if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
+    #             self.arm2.angle_pitch = self.arm2.limit_speed_pitch
+    #     elif event.key() == Qt.Key.Key_Y:
+    #         self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
+    #         if self.arm2.angle_pitch < 0:
+    #             self.arm2.angle_pitch = 0
+    #     if event.key() == Qt.Key.Key_U:
+    #         self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
+    #         if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
+    #             self.arm3.angle_pitch = self.arm3.limit_speed_pitch
+    #     elif event.key() == Qt.Key.Key_I:
+    #         self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
+    #         if self.arm3.angle_pitch < 0:
+    #             self.arm3.angle_pitch = 0
+
+    # def animate(self):
+    #     if self.animation_active:
+    #         self.arm1.angle_yaw += self.angle_step
+    #         self.update()
+    #         self.light_angle = (self.light_angle + self.angle_step) % 360
+    #         self.lights[1].position[0] = math.cos(math.radians(self.light_angle)) * 2.0
+    #         self.lights[1].position[2] = math.sin(math.radians(self.light_angle)) * 2.0
+    #     else:
+    #         self.timer.stop()

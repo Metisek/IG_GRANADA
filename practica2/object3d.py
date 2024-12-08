@@ -123,7 +123,6 @@ class object3D(basic_object3D):
             return
 
         if not hasattr(self, 'texture_id') or self.texture_id is None:
-            print("Error: Texture is not loaded.")
             return
 
         material.apply()

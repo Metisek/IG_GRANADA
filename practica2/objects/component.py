@@ -3,6 +3,7 @@ from objects.cuboid import Cuboid
 from objects.sphere import Sphere
 from object3d import object3D
 from materials import OpenGLMaterial
+from file_ply import PLYObject
 
 class Component(object3D):
     def __init__(self,
@@ -21,15 +22,17 @@ class Component(object3D):
                  move_axis_x: bool = False,
                  move_axis_y: bool = False,
                  move_axis_z: bool = False,
-                 limit_move_x=None,
-                 limit_move_y=None, limit_move_z=None,
-                 limit_speed_move_x=0.5, limit_speed_move_y=0.5, limit_speed_move_z=0.5,
+                 limit_move_x: float = None,
+                 limit_move_y: float = None,
+                 limit_move_z: float = None,
+                 limit_speed_move_x=1, limit_speed_move_y=1, limit_speed_move_z=1,
                  speed_move_x=1, speed_move_y=1, speed_move_z=1,
                  scale_x=1, scale_y=1, scale_z=1,
                  scale_axis_x=False, scale_axis_y=False, scale_axis_z=False,
                  limit_scale_x=None, limit_scale_y=None, limit_scale_z=None,
-                 limit_speed_scale_x=0.5, limit_speed_scale_y=0.5, limit_speed_scale_z=0.5,
-                 speed_scale_x=1, speed_scale_y=1, speed_scale_z=1,
+                 limit_speed_scale_x=1, limit_speed_scale_y=1, limit_speed_scale_z=1,
+                 speed_scale_x=0.1, speed_scale_y=0.1, speed_scale_z=0.1,
+                 scale_children=False,
                  offset_x=0, offset_y=0, offset_z=0,
                  origin_x=0, origin_y=0, origin_z=0,
                  object_type='CUBOID', object_properties: dict = None):
@@ -91,6 +94,7 @@ class Component(object3D):
         self.speed_scale_x = speed_scale_x
         self.speed_scale_y = speed_scale_y
         self.speed_scale_z = speed_scale_z
+        self.scale_children = scale_children
 
         # Offset and origin properties for component moving
         self.offset_x = offset_x
@@ -112,6 +116,12 @@ class Component(object3D):
             radius = object_properties.get('radius', None)
             num_segments = object_properties.get('num_segments', None)
             self.object = Sphere(radius=radius, num_segments=num_segments)
+        elif object_type == 'PLY':
+            file_name = object_properties.get('file_name', None)
+            if file_name:
+                self.object = PLYObject(file_name=file_name)
+            else:
+                self.object = Cuboid()
         else:
             self.object = Cuboid()
 
@@ -203,5 +213,19 @@ class Component(object3D):
         # Draw each child component
         for child in self.children:
             glPushMatrix()
+            if not self.scale_children:
+                # Undo parent's scaling before drawing the child
+                glScalef(1.0 / self.scale_x, 1.0 / self.scale_y, 1.0 / self.scale_z)
+
+                # Calculate the difference in dimensions after scaling
+                # (works only for cuboids now, i don't need to implment any other objects for this project)
+                length_x = self.properties.get('length', 0)
+                delta_x = length_x * (self.scale_x - 1) if length_x else 0
+                length_y = self.properties.get('width', 0)
+                delta_y = length_y * (self.scale_y - 1) if length_y else 0
+                length_z = self.properties.get('height', 0)
+                delta_z = length_z * (self.scale_z - 1) if length_z else 0
+                # Move the child to the new position after parent scaling with child origin as a reference
+                glTranslatef(-delta_x, -delta_y, -delta_z)
             child.draw(draw_mode, material)
             glPopMatrix()
