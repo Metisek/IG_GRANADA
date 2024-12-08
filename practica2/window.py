@@ -1,27 +1,29 @@
 # window.py
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QHBoxLayout, QFileDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QHBoxLayout, QFileDialog, QVBoxLayout, QMenu
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtGui import QAction
-from gl_widget import gl_widget
+from gl_widget import gl_widget, PLY_PATH
+import os
+import random
 
 class window(QMainWindow):
     def __init__(self):
         super().__init__()
 
         central_widget = QWidget(self)
-        horizontal_main = QHBoxLayout()
+        self.horizontal_main = QHBoxLayout()
 
-        framed_widget = QFrame(central_widget)
-        framed_widget.setFrameStyle(QFrame.Shape.Panel)
-        framed_widget.setLineWidth(3)
+        self.framed_widget = QFrame(central_widget)
+        self.framed_widget.setFrameStyle(QFrame.Shape.Panel)
+        self.framed_widget.setLineWidth(3)
 
-        self.gl_widget = gl_widget(framed_widget)
-        horizontal_frame = QHBoxLayout()
-        horizontal_frame.addWidget(self.gl_widget)
-        framed_widget.setLayout(horizontal_frame)
+        self.gl_widget = gl_widget(self.framed_widget)
+        self.horizontal_frame = QHBoxLayout()
+        self.horizontal_frame.addWidget(self.gl_widget)
+        self.framed_widget.setLayout(self.horizontal_frame)
 
-        horizontal_main.addWidget(framed_widget)
-        central_widget.setLayout(horizontal_main)
+        self.horizontal_main.addWidget(self.framed_widget)
+        central_widget.setLayout(self.horizontal_main)
 
         # File menu
         action_exit = QAction('Exit', self)
@@ -35,6 +37,15 @@ class window(QMainWindow):
         menu_file.addAction(action_open)
         menu_file.addAction(action_exit)
 
+        # Mode menu
+        self.menu_mode = self.menuBar().addMenu('Mode')
+        action_single = QAction('Single', self)
+        action_single.triggered.connect(self.set_single_mode)
+        action_matrix = QAction('PLY Matrix', self)
+        action_matrix.triggered.connect(self.set_matrix_mode)
+        self.menu_mode.addAction(action_single)
+        self.menu_mode.addAction(action_matrix)
+
         # Window settings
         self.setWindowTitle('3D Viewer')
         self.setGeometry(100, 100, 1000, 1000)
@@ -44,3 +55,10 @@ class window(QMainWindow):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open PLY File", "", "PLY Files (*.ply)")
         if file_name:
             self.gl_widget.load_ply(file_name)
+
+    def set_single_mode(self):
+        self.gl_widget.set_mode('single')
+
+    def set_matrix_mode(self):
+        self.gl_widget.set_mode('matrix')
+        self.gl_widget.load_ply_matrix(PLY_PATH)

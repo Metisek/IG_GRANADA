@@ -3,10 +3,14 @@ from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage
 from OpenGL.GL import *
+from OpenGL.GLU import gluPerspective
 import math
 
 import common
 from OpenGL.GLU import gluNewQuadric, gluSphere
+
+import os
+import random
 
 from axis import axis
 from objects.tetrahedron import tetrahedron
@@ -55,10 +59,13 @@ DISPLAY_UNLIT_TEXTURE = 4
 DISPLAY_TEXTURE_FLAT = 5
 DISPLAY_TEXTURE_GOURAUD = 6
 
+PLY_PATH = 'ply_matrix_objects'
 
 class gl_widget(QOpenGLWidget):
     def __init__(self, parent=None):
         super(gl_widget, self).__init__(parent)
+
+        self.ply_view_distances = [DEFAULT_DISTANCE + 2] * 16
 
         self.observer_distance = DEFAULT_DISTANCE
         self.observer_angle_x = 0
@@ -93,18 +100,50 @@ class gl_widget(QOpenGLWidget):
         self.timer.setInterval(0)
         self.timer.timeout.connect(self.animate)
 
+        self.mode = 'single'
+        self.ply_matrix = []
+
+    def set_mode(self, mode):
+        if mode == 'matrix' and self.mode != 'matrix':
+            # Reset camera position and rotation
+            self.observer_distance = DEFAULT_DISTANCE
+            self.observer_angle_x = 0
+            self.observer_angle_y = 0
+            self.move_x = 0
+            self.move_y = 0
+            self.move_z = 0
+        self.mode = mode
+        self.update()
+
+    def load_ply_matrix(self, directory):
+        if len(self.ply_matrix) == 0:
+            directory_abs_path = os.path.abspath(directory)
+            ply_files = [os.path.join(directory_abs_path, f) for f in os.listdir(directory_abs_path) if f.endswith('.ply')]
+            random.shuffle(ply_files)
+            self.ply_matrix = [PLYObject(ply_files[i]) for i in range(min(16, len(ply_files)))]
+            self.update()
+
     def mousePressEvent(self, event):
         self.last_mouse_position = event.pos()
         if event.button() == Qt.LeftButton:
-            x, y = event.x(), event.y()
-            self.makeCurrent()
-            selected_index =  self.pick(x, y)
-            selected_object = self.get_object_selection()
-            if selected_index != -1:
-                selected_object.selected_triangle = selected_index
+            if self.mode == 'matrix':
+                col = event.x() // (self.width() // 4)
+                row = event.y() // (self.height() // 4)
+                index = row * 4 + col
+                if index < len(self.ply_matrix):
+                    self.ply_object = self.ply_matrix[index]
+                    self.object = OBJECT_PLY
+                    self.set_mode('single')
             else:
-                selected_object.selected_triangle = None
-            self.update()
+                x, y = event.x(), event.y()
+                self.makeCurrent()
+                selected_index = self.pick(x, y)
+                selected_object = self.get_object_selection()
+                if selected_index != -1:
+                    selected_object.selected_triangle = selected_index
+                else:
+                    selected_object.selected_triangle = None
+                self.update()
         elif event.button() == Qt.MiddleButton:
             self.setCursor(Qt.ClosedHandCursor)
 
@@ -123,7 +162,7 @@ class gl_widget(QOpenGLWidget):
                 elif self.observer_angle_x > 90:
                     self.observer_angle_x = 90
                 self.observer_angle_y = (self.observer_angle_y + dx * ANGLE_STEP) % 360
-            elif event.buttons() & Qt.MiddleButton:
+            elif event.buttons() & Qt.MiddleButton and self.mode == 'single':
                 move_vector = np.array([dx * 0.01, -dy * 0.01, 0.0])
                 transformed_vector = self.transform_vector_by_rotation(move_vector)
                 self.move_x += transformed_vector[0]
@@ -132,6 +171,17 @@ class gl_widget(QOpenGLWidget):
             self.update()
         self.last_mouse_position = event.pos()
 
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y() / 120  # Each step is 15 degrees
+        if self.mode == 'matrix':
+            col = int(event.position().x()) // (self.width() // 4)
+            row = int(event.position().y()) // (self.height() // 4)
+            index = row * 4 + col
+            if index < len(self.ply_matrix):
+                self.ply_view_distances[index] *= (1.0 - delta * 0.1)
+        else:
+            self.observer_distance *= (1.0 - delta * 0.1)
+        self.update()
 
     def transform_vector_by_rotation(self, vector):
         rotation_matrix = self.create_rotation_matrix(self.observer_angle_x, self.observer_angle_y)
@@ -156,12 +206,11 @@ class gl_widget(QOpenGLWidget):
         ])
         return np.dot(rz, np.dot(ry, rx))
 
-    def wheelEvent(self, event):
-        delta = event.angleDelta().y() / 120  # Each step is 15 degrees
-        self.observer_distance *= (1.0 - delta * 0.1)
-        self.update()
 
     def keyPressEvent(self, event):
+        if self.mode != 'matrix' and event.key() == Qt.Key_Escape:
+            self.set_mode('matrix')
+            self.load_ply_matrix(PLY_PATH)
 
         if event.key() == Qt.Key.Key_C:
             self.projection_mode = 'perspective'
@@ -418,9 +467,77 @@ class gl_widget(QOpenGLWidget):
 
     def paintGL(self):
         self.clear_window()
-        self.change_projection()
-        self.change_observer()
-        self.draw_objects()
+        if self.mode == 'single':
+            self.change_projection()
+            self.change_observer()
+            self.draw_objects()
+        elif self.mode == 'matrix':
+            self.draw_ply_matrix()
+
+    def draw_ply_matrix(self):
+        glDisable(GL_LIGHTING)
+        glDisable(GL_TEXTURE_2D)
+        for i, ply_object in enumerate(self.ply_matrix):
+            row = i // 4
+            col = i % 4
+            viewport_width = self.width() // 4
+            viewport_height = self.height() // 4
+            x = col * viewport_width
+            y = (3 - row) * viewport_height
+
+            # Set viewport for each sub-window
+            glViewport(x, y, viewport_width, viewport_height)
+
+            # Draw border
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            glOrtho(0, viewport_width, 0, viewport_height, -1, 1)
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            glColor3f(0, 0, 0)
+            glBegin(GL_LINE_LOOP)
+            glVertex2f(1, 1)
+            glVertex2f(viewport_width - 1, 1)
+            glVertex2f(viewport_width - 1, viewport_height - 1)
+            glVertex2f(1, viewport_height - 1)
+            glEnd()
+
+            # Set projection for PLY rendering
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            aspect_ratio = viewport_width / viewport_height
+            near_plane = 0.1
+            far_plane = 100.0
+            fov = 45.0
+            gluPerspective(fov, aspect_ratio, near_plane, far_plane)
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            glTranslatef(0, 0, -self.ply_view_distances[i])
+
+            # Apply camera transformations
+            glTranslatef(self.move_x, self.move_y, -self.move_z)
+            glRotatef(self.observer_angle_x, 1, 0, 0)
+            glRotatef(self.observer_angle_y, 0, 1, 0)
+
+            # Draw PLY object
+            if ply_object:
+                if self.solid_mode in {DISPLAY_UNLIT_TEXTURE, DISPLAY_TEXTURE_FLAT, DISPLAY_TEXTURE_GOURAUD}:
+                    mode = DISPLAY_SOLID
+                else:
+                    mode = self.solid_mode
+
+                if mode == DISPLAY_SOLID:
+                    ply_object.draw_fill()
+                elif mode == DISPLAY_CHESS:
+                    ply_object.draw_chess()
+                elif mode == DISPLAY_FLAT_SHADED:
+                    glEnable(GL_LIGHTING)
+                    ply_object.draw_flat_shaded(self.materials[self.material_index])
+                    glDisable(GL_LIGHTING)
+                elif mode == DISPLAY_GOURAUD_SHADED:
+                    glEnable(GL_LIGHTING)
+                    ply_object.draw_gouraud_shaded(self.materials[self.material_index])
+                    glDisable(GL_LIGHTING)
 
     def resizeGL(self, width, height):
         glViewport(0, 0, width, height)
