@@ -143,11 +143,9 @@ class object3D(basic_object3D):
         glBindTexture(GL_TEXTURE_2D, 0)  # Odłączenie tekstury
 
 
-    def draw_texture_flat_shaded(self, lights: list[Light], material: OpenGLMaterial):
+    def draw_texture_flat_shaded(self, material: OpenGLMaterial):
         self.calculate_face_normals()  # Use face normals for flat shading
         material.apply()
-        self.apply_lights(lights)
-        glShadeModel(GL_FLAT)
 
         if not self.texture_id:
             print("Error: Texture not loaded.")
@@ -168,14 +166,11 @@ class object3D(basic_object3D):
 
         glDisable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, 0)
-        glEnable(GL_LIGHTING)
 
 
-    def draw_texture_gouraud_shaded(self, lights: list[Light], material: OpenGLMaterial):
+    def draw_texture_gouraud_shaded(self, material: OpenGLMaterial):
         self.calculate_vertex_normals()  # Use vertex normals for Gouraud shading
         material.apply()
-        self.apply_lights(lights)
-        glShadeModel(GL_SMOOTH)
 
         if not self.texture_id:
             print("Error: Texture not loaded.")
@@ -196,7 +191,6 @@ class object3D(basic_object3D):
 
         glDisable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, 0)
-        glEnable(GL_LIGHTING)
 
     def draw_with_ids(self):
         glBegin(GL_TRIANGLES)

@@ -374,14 +374,14 @@ class gl_widget(QOpenGLWidget):
             if self.solid_mode == DISPLAY_TEXTURE_FLAT:
                 glEnable(GL_LIGHTING)
                 check = self.texture_object_check()
-                selected_object.draw_texture_flat_shaded(active_lights, self.clear_white_material)
+                selected_object.draw_texture_flat_shaded(self.clear_white_material)
                 if check:
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_GOURAUD:
                 glEnable(GL_LIGHTING)
                 check = self.texture_object_check()
-                selected_object.draw_texture_gouraud_shaded(active_lights, self.clear_white_material)
+                selected_object.draw_texture_gouraud_shaded(self.clear_white_material)
                 if check:
                     self.update()
 
@@ -693,25 +693,3 @@ class gl_widget(QOpenGLWidget):
             self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
             if self.arm3.angle_pitch < 0:
                 self.arm3.angle_pitch = 0
-
-
-
-    # Old hierarchial model
-    # def init_hierarchial_model(self):
-    #     self.base = Component(object_properties=
-    #                           object_type='CUBOID'
-    #                           , origin_y=-0.1)  # Base rotates around Z-axis
-    #     self.arm1 = Component(1.0, 0.3, 0.3, 0.3, angle_yaw=0, rotation_axis_yaw=True, origin_y=0.15)  # Main arm rotates around Y-axis
-    #     self.arm2 = Component(1.0, 0.25, 0.6, 0.25, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,80) ,origin_y=0.3, offset_y=0.3)  # Secondary arm rotates around X-axis
-    #     self.arm3 = Component(1.0, 0.2, 0.6, 0.2, angle_pitch=30, rotation_axis_pitch=True, limit_pitch=(0,130), origin_y=0.3, offset_y=0.6)  # Tertiary arm rotates around X-axis
-    #     self.gripper1 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=0.08)  # Gripper part 1
-    #     self.gripper2 = Component(0.3, 0.05, 0.2, 0.05, origin_y=0.1, offset_y=0.6, offset_x=-0.08)  # Gripper part 2
-
-    #     # Set up hierarchy
-    #     self.base.children.append(self.arm1)
-    #     self.arm1.children.append(self.arm2)
-    #     self.arm2.children.append(self.arm3)
-    #     self.arm3.children.append(self.gripper1)
-    #     self.arm3.children.append(self.gripper2)
-    #     self.model = HierarchicalModel()
-    #     self.model.components.append(self.base)
