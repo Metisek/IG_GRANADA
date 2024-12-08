@@ -119,7 +119,7 @@ class Component(object3D):
         self.children = []
 
 
-    def draw(self, draw_mode, lights, material: OpenGLMaterial = None):
+    def draw(self, draw_mode, material: OpenGLMaterial = None):
 
         if self.limit_pitch is not None:
             if self.angle_pitch < self.limit_pitch[0]:
@@ -194,14 +194,14 @@ class Component(object3D):
         elif draw_mode == 3:
             self.object.draw_chess()
         elif draw_mode == 4:
-            self.object.draw_flat_shaded(lights=lights, material = material, apply_lights=True)
+            self.object.draw_flat_shaded(material)
         elif draw_mode == 5:
-            self.object.draw_gouraud_shaded(lights=lights, material = material, apply_lights=True)
+            self.object.draw_gouraud_shaded(material)
 
         glTranslatef(-self.origin_x, -self.origin_y, -self.origin_z)
 
         # Draw each child component
         for child in self.children:
             glPushMatrix()
-            child.draw(draw_mode, lights, material)
+            child.draw(draw_mode, material)
             glPopMatrix()

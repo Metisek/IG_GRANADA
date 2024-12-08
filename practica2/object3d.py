@@ -93,15 +93,9 @@ class object3D(basic_object3D):
         if lights:
             glEnable(GL_LIGHTING)
 
-    def draw_flat_shaded(self,
-                         lights: list[Light] = [],
-                         material: OpenGLMaterial = common.DEFAULT_MATERIAL,
-                         apply_lights: bool = True):
+    def draw_flat_shaded(self, material: OpenGLMaterial):
         self.calculate_face_normals()
         material.apply()
-        # if apply_lights:
-        #     self.apply_lights(lights)
-        glShadeModel(GL_FLAT)
         glBegin(GL_TRIANGLES)
         for i, triangle in enumerate(self.triangles):
             glNormal3fv(self.normals[i])
@@ -109,13 +103,10 @@ class object3D(basic_object3D):
             glVertex3fv(self.vertices[triangle[1]])
             glVertex3fv(self.vertices[triangle[2]])
         glEnd()
-        glDisable(GL_LIGHTING)
 
-    def draw_gouraud_shaded(self, lights: list[Light], material: OpenGLMaterial):
+    def draw_gouraud_shaded(self, material: OpenGLMaterial):
         self.calculate_vertex_normals()
-        # self.apply_lights(lights)
         material.apply()
-        glShadeModel(GL_SMOOTH)
         glBegin(GL_TRIANGLES)
         for triangle in self.triangles:
             glNormal3fv(self.vertex_normals[triangle[0]])
@@ -125,7 +116,6 @@ class object3D(basic_object3D):
             glNormal3fv(self.vertex_normals[triangle[2]])
             glVertex3fv(self.vertices[triangle[2]])
         glEnd()
-        glDisable(GL_LIGHTING)
 
     def draw_unlit_texture(self, material: OpenGLMaterial):
         if not self.texture_coords or len(self.texture_coords) != len(self.vertices):

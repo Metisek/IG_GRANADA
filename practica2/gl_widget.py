@@ -354,16 +354,16 @@ class gl_widget(QOpenGLWidget):
             if self.solid_mode == DISPLAY_FLAT_SHADED:
                 glEnable(GL_LIGHTING)
                 if self.object != OBJECT_HIERARCHY:
-                    selected_object.draw_flat_shaded(active_lights, material)
+                    selected_object.draw_flat_shaded(material)
                 else:
-                    self.model.draw(4, active_lights, material)
+                    self.model.draw(4, material)
 
             if self.solid_mode == DISPLAY_GOURAUD_SHADED:
                 glEnable(GL_LIGHTING)
                 if self.object != OBJECT_HIERARCHY:
-                    selected_object.draw_gouraud_shaded(active_lights, material)
+                    selected_object.draw_gouraud_shaded(material)
                 else:
-                    self.model.draw(5, active_lights, material)
+                    self.model.draw(5, material)
 
             if self.solid_mode == DISPLAY_UNLIT_TEXTURE:
                 check = self.texture_object_check()

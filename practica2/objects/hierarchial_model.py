@@ -10,8 +10,8 @@ class HierarchicalModel:
         self.components = []
         self.components_indexes_search = {}
 
-    def draw(self, draw_mode, lights=[], material: OpenGLMaterial = None):
+    def draw(self, draw_mode, material: OpenGLMaterial = None):
         for component in self.components:
             glPushMatrix()
-            component.draw(draw_mode, lights, material)
+            component.draw(draw_mode, material)
             glPopMatrix()
