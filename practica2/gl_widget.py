@@ -6,6 +6,7 @@ from OpenGL.GL import *
 import math
 
 import common
+from OpenGL.GLU import gluNewQuadric, gluSphere
 
 from axis import axis
 from objects.tetrahedron import tetrahedron
@@ -279,6 +280,38 @@ class gl_widget(QOpenGLWidget):
         glRotatef(self.observer_angle_x, 1, 0, 0)
         glRotatef(self.observer_angle_y, 0, 1, 0)
         glTranslatef(self.move_x, self.move_y, -self.move_z)
+        self.update_lights()
+
+    def update_lights(self):
+        flat_modes = {DISPLAY_FLAT_SHADED, DISPLAY_TEXTURE_FLAT}
+        smooth_modes = {DISPLAY_GOURAUD_SHADED, DISPLAY_TEXTURE_GOURAUD}
+
+        for i, light in enumerate(self.lights):
+            if self.enabled_lights[i]:
+                glEnable(GL_LIGHT0 + i)
+                position = np.array(light.position + [0.0 if light.infinite else 1.0], dtype=np.float32)
+                glLightfv(GL_LIGHT0 + i, GL_POSITION, position)
+                glLightfv(GL_LIGHT0 + i, GL_AMBIENT, light.ambient)
+                glLightfv(GL_LIGHT0 + i, GL_DIFFUSE, [c * light.brightness for c in light.diffuse])
+                glLightfv(GL_LIGHT0 + i, GL_SPECULAR, [c * light.brightness for c in light.specular])
+                # Draw light as a circle in space
+                color = light.color
+                if color == (1.0, 1.0, 1.0, 1.0):
+                    color = (0.0, 0.0, 0.0, 1.0)
+                glMaterialfv(GL_FRONT, GL_EMISSION, color)
+                glPushMatrix()
+                glTranslatef(*light.position)
+                quadric = gluNewQuadric()
+                gluSphere(quadric, 0.05, 16, 16)  # Small sphere with radius 0.05
+                glPopMatrix()
+                glMaterialfv(GL_FRONT, GL_EMISSION, [0.0, 0.0, 0.0, 1.0])
+
+                if self.solid_mode in flat_modes:
+                    glShadeModel(GL_FLAT)
+                elif self.solid_mode in smooth_modes:
+                    glShadeModel(GL_SMOOTH)
+            else:
+                glDisable(GL_LIGHT0 + i)
 
     def get_object_selection(self):
         if self.object == OBJECT_TETRAHEDRON:
@@ -301,24 +334,8 @@ class gl_widget(QOpenGLWidget):
     def draw_objects(self):
         self.axis.draw_line()
         selected_object = self.get_object_selection()
-        active_lights = [light for light, enabled in zip(self.lights, self.enabled_lights) if enabled]
         material = self.materials[self.material_index]
-
-        if self.draw_point:
-            glPointSize(5)
-            glColor3fv(common.BLACK)
-            if self.object != OBJECT_HIERARCHY:
-                selected_object.draw_point()
-            else:
-                self.model.draw(0)
-
-        if self.draw_line:
-            glLineWidth(3)
-            glColor3fv(common.MAGENTA)
-            if self.object != OBJECT_HIERARCHY:
-                selected_object.draw_line()
-            else:
-                self.model.draw(1)
+        active_lights = [light for i, light in enumerate(self.lights) if self.enabled_lights[i]]
 
         if self.solid_enabled:
             if self.solid_mode == DISPLAY_SOLID:
@@ -335,12 +352,14 @@ class gl_widget(QOpenGLWidget):
                     self.model.draw(3)
 
             if self.solid_mode == DISPLAY_FLAT_SHADED:
+                glEnable(GL_LIGHTING)
                 if self.object != OBJECT_HIERARCHY:
                     selected_object.draw_flat_shaded(active_lights, material)
                 else:
                     self.model.draw(4, active_lights, material)
 
             if self.solid_mode == DISPLAY_GOURAUD_SHADED:
+                glEnable(GL_LIGHTING)
                 if self.object != OBJECT_HIERARCHY:
                     selected_object.draw_gouraud_shaded(active_lights, material)
                 else:
@@ -353,16 +372,35 @@ class gl_widget(QOpenGLWidget):
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_FLAT:
+                glEnable(GL_LIGHTING)
                 check = self.texture_object_check()
                 selected_object.draw_texture_flat_shaded(active_lights, self.clear_white_material)
                 if check:
                     self.update()
 
             if self.solid_mode == DISPLAY_TEXTURE_GOURAUD:
+                glEnable(GL_LIGHTING)
                 check = self.texture_object_check()
                 selected_object.draw_texture_gouraud_shaded(active_lights, self.clear_white_material)
                 if check:
                     self.update()
+
+        glDisable(GL_LIGHTING)
+        if self.draw_point:
+            glPointSize(5)
+            glColor3fv(common.BLACK)
+            if self.object != OBJECT_HIERARCHY:
+                selected_object.draw_point()
+            else:
+                self.model.draw(0)
+
+        if self.draw_line:
+            glLineWidth(3)
+            glColor3fv(common.MAGENTA)
+            if self.object != OBJECT_HIERARCHY:
+                selected_object.draw_line()
+            else:
+                self.model.draw(1)
 
         if self.animation_active:
             self.animate()

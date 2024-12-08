@@ -93,10 +93,14 @@ class object3D(basic_object3D):
         if lights:
             glEnable(GL_LIGHTING)
 
-    def draw_flat_shaded(self, lights: list[Light], material: OpenGLMaterial):
+    def draw_flat_shaded(self,
+                         lights: list[Light] = [],
+                         material: OpenGLMaterial = common.DEFAULT_MATERIAL,
+                         apply_lights: bool = True):
         self.calculate_face_normals()
         material.apply()
-        self.apply_lights(lights)
+        # if apply_lights:
+        #     self.apply_lights(lights)
         glShadeModel(GL_FLAT)
         glBegin(GL_TRIANGLES)
         for i, triangle in enumerate(self.triangles):
@@ -109,7 +113,7 @@ class object3D(basic_object3D):
 
     def draw_gouraud_shaded(self, lights: list[Light], material: OpenGLMaterial):
         self.calculate_vertex_normals()
-        self.apply_lights(lights)
+        # self.apply_lights(lights)
         material.apply()
         glShadeModel(GL_SMOOTH)
         glBegin(GL_TRIANGLES)

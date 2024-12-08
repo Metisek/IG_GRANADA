@@ -21,26 +21,6 @@ class Light(basic_object3D):
         self.infinite = infinite
         self.color = color
 
-    def apply_light(self, light_id):
-        glEnable(GL_LIGHTING)
-        glEnable(light_id)
-
-        position = np.array(self.position + [0.0 if self.infinite else 1.0], dtype=np.float32)
-        glLightfv(light_id, GL_POSITION, position)
-        glLightfv(light_id, GL_AMBIENT, self.ambient)
-        glLightfv(light_id, GL_DIFFUSE, [c * self.brightness for c in self.diffuse])
-        glLightfv(light_id, GL_SPECULAR, [c * self.brightness for c in self.specular])
-        # Draw light as a circle in space
-        color = self.color
-        if color == (1.0, 1.0, 1.0, 1.0):
-            color = (0.0, 0.0, 0.0, 1.0)
-        glMaterialfv(GL_FRONT, GL_EMISSION, color)
-        glPushMatrix()
-        glTranslatef(*self.position)
-        quadric = gluNewQuadric()
-        gluSphere(quadric, 0.05, 16, 16)  # Small sphere with radius 0.05
-        glPopMatrix()
-        glMaterialfv(GL_FRONT, GL_EMISSION, [0.0, 0.0, 0.0, 1.0])
 
     def set_material(self, side, ambient, diffuse, specular, brightness):
         adjusted_diffuse = [c * brightness for c in diffuse]
