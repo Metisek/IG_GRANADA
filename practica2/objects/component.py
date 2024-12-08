@@ -18,6 +18,7 @@ class Component(object3D):
                  limit_speed_yaw: float = 5,
                  limit_speed_roll: float = 5,
                  speed_pitch: float = 1, speed_yaw: float = 1, speed_roll: float = 1,
+                 speed_pitch_step: float = 0.1, speed_yaw_step: float = 0.1, speed_roll_step: float = 0.1,
                  pos_x: float = 0, pos_y: float = 0, pos_z: float = 0,
                  move_axis_x: bool = False,
                  move_axis_y: bool = False,
@@ -27,11 +28,13 @@ class Component(object3D):
                  limit_move_z: float = None,
                  limit_speed_move_x=1, limit_speed_move_y=1, limit_speed_move_z=1,
                  speed_move_x=1, speed_move_y=1, speed_move_z=1,
+                 speed_move_step_x=0.05, speed_move_step_y=0.05, speed_move_step_z=0.05,
                  scale_x=1, scale_y=1, scale_z=1,
                  scale_axis_x=False, scale_axis_y=False, scale_axis_z=False,
                  limit_scale_x=None, limit_scale_y=None, limit_scale_z=None,
                  limit_speed_scale_x=1, limit_speed_scale_y=1, limit_speed_scale_z=1,
                  speed_scale_x=0.1, speed_scale_y=0.1, speed_scale_z=0.1,
+                 speed_scale_step_x=0.05, speed_scale_step_y=0.05, speed_scale_step_z=0.05,
                  scale_children=False,
                  offset_x=0, offset_y=0, offset_z=0,
                  origin_x=0, origin_y=0, origin_z=0,
@@ -60,6 +63,9 @@ class Component(object3D):
         self.speed_pitch = speed_pitch
         self.speed_yaw = speed_yaw
         self.speed_roll = speed_roll
+        self.speed_pitch_step = speed_pitch_step
+        self.speed_yaw_step = speed_yaw_step
+        self.speed_roll_step = speed_roll_step
 
         # Translation (move) properties
         self.pos_x = pos_x
@@ -77,6 +83,9 @@ class Component(object3D):
         self.speed_move_x = speed_move_x
         self.speed_move_y = speed_move_y
         self.speed_move_z = speed_move_z
+        self.speed_move_step_x = speed_move_step_x
+        self.speed_move_step_y = speed_move_step_y
+        self.speed_move_step_z = speed_move_step_z
 
         # Scaling properties
         self.scale_x = scale_x
@@ -94,7 +103,11 @@ class Component(object3D):
         self.speed_scale_x = speed_scale_x
         self.speed_scale_y = speed_scale_y
         self.speed_scale_z = speed_scale_z
+        self.speed_scale_step_x = speed_scale_step_x
+        self.speed_scale_step_y = speed_scale_step_y
+        self.speed_scale_step_z = speed_scale_step_z
         self.scale_children = scale_children
+
 
         # Offset and origin properties for component moving
         self.offset_x = offset_x

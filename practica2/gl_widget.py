@@ -36,7 +36,6 @@ FRONT_PLANE_PERSPECTIVE = (X_MAX - X_MIN) / 2
 BACK_PLANE_PERSPECTIVE = 1000
 DEFAULT_DISTANCE = 2
 ANGLE_STEP = 1
-HIERARCHY_ANGLE_STEP = 0.2
 DISTANCE_FACTOR = 1.1
 
 OBJECT_TETRAHEDRON = 0
@@ -592,7 +591,7 @@ class gl_widget(QOpenGLWidget):
             "file_name": "helicopter_ply/base.ply",
         }, object_type='PLY', origin_y=0.1, origin_x=0.7, origin_z=-1.3,
             pos_x=0, move_axis_x=True, limit_move_x=(-5, 5),
-            speed_move_x=0.1, limit_speed_move_x=0.5)
+            speed_move_x=0.1, limit_speed_move_x=0.4)
 
         self.main_rotor = Component(object_properties={
             "file_name": "helicopter_ply/rotor_big.ply",
@@ -617,7 +616,7 @@ class gl_widget(QOpenGLWidget):
             "height":0.25,
             }, object_type='CUBOID', origin_y=-0.4, offset_y=0, pos_y=-0.8,
             scale_axis_y=True, limit_scale_y=(0.3, 3), speed_scale_y=0.1, scale_y=1,
-            rotation_axis_yaw=True, angle_yaw=0)
+            rotation_axis_yaw=True, limit_speed_yaw=5, angle_yaw=0)
 
         self.arm_end_gripper_1 = Component(object_properties={
             "length":0.05,
@@ -670,33 +669,32 @@ class gl_widget(QOpenGLWidget):
         elif event.key() == Qt.Key_X:
             self.arm_extendable.angle_yaw -= self.arm_extendable.speed_yaw
 
-        # # Modify rotation speed for base
-        # if event.key() == Qt.Key.Key_E:
-        #     self.arm1.speed_yaw += HIERARCHY_ANGLE_STEP
-        #     if self.arm1.speed_yaw > self.arm1.limit_speed_yaw:
-        #         self.arm1.speed_yaw = self.arm1.limit_speed_yaw
-        # elif event.key() == Qt.Key.Key_R:
-        #     self.arm1.speed_yaw -= HIERARCHY_ANGLE_STEP
-        #     if self.arm1.speed_yaw < 0:
-        #         self.arm1.speed_yaw = 0
+        # Modify speeds
+        if event.key() == Qt.Key.Key_E:
+            self.base.speed_move_x += self.base.speed_move_step_x
+            if self.base.speed_move_x > self.base.limit_speed_move_x:
+                self.base.speed_move_x = self.base.limit_speed_move_x
+        elif event.key() == Qt.Key.Key_R:
+            self.base.speed_move_x -= self.base.speed_move_step_x
+            if self.base.speed_move_x < 0:
+                self.base.speed_move_x = 0
 
-        # # Modify rotation speed for second and third degrees of freedom
-        # if event.key() == Qt.Key.Key_T:
-        #     self.arm2.angle_pitch += HIERARCHY_ANGLE_STEP
-        #     if self.arm2.angle_pitch > self.arm2.limit_speed_pitch:
-        #         self.arm2.angle_pitch = self.arm2.limit_speed_pitch
-        # elif event.key() == Qt.Key.Key_Y:
-        #     self.arm2.angle_pitch -= HIERARCHY_ANGLE_STEP
-        #     if self.arm2.angle_pitch < 0:
-        #         self.arm2.angle_pitch = 0
-        # if event.key() == Qt.Key.Key_U:
-        #     self.arm3.angle_pitch += HIERARCHY_ANGLE_STEP
-        #     if self.arm3.angle_pitch > self.arm3.limit_speed_pitch:
-        #         self.arm3.angle_pitch = self.arm3.limit_speed_pitch
-        # elif event.key() == Qt.Key.Key_I:
-        #     self.arm3.angle_pitch -= HIERARCHY_ANGLE_STEP
-        #     if self.arm3.angle_pitch < 0:
-        #         self.arm3.angle_pitch = 0
+        if event.key() == Qt.Key.Key_T:
+            self.arm_extendable.speed_scale_y += self.arm_extendable.speed_scale_step_y
+            if self.arm_extendable.speed_scale_y > self.arm_extendable.limit_speed_scale_y:
+                self.arm_extendable.speed_scale_y = self.arm_extendable.limit_speed_scale_y
+        elif event.key() == Qt.Key.Key_Y:
+            self.arm_extendable.speed_scale_y -= self.arm_extendable.speed_scale_step_y
+            if self.arm_extendable.speed_scale_y < 0:
+                self.arm_extendable.speed_scale_y = 0
+        if event.key() == Qt.Key.Key_U:
+            self.arm_extendable.speed_yaw += self.arm_extendable.speed_yaw_step
+            if self.arm_extendable.speed_yaw > self.arm_extendable.limit_speed_yaw:
+                self.arm_extendable.speed_yaw = self.arm_extendable.limit_speed_yaw
+        elif event.key() == Qt.Key.Key_I:
+            self.arm_extendable.speed_yaw -= self.arm_extendable.speed_yaw_step
+            if self.arm_extendable.speed_yaw < 0:
+                self.arm_extendable.speed_yaw = 0
 
     # Old hierarchial model (robot arm)
     # def init_hierarchial_model(self):
