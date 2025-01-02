@@ -142,7 +142,13 @@ class Component(object3D):
         self.children = []
 
 
-    def draw(self, draw_mode, material: OpenGLMaterial = None):
+    def draw_with_ids(self, iteration = 0):
+        iteration = self.object.draw_with_ids(iteration)
+        for child in self.children:
+            iteration = child.draw_with_ids(iteration)
+        return iteration
+
+    def draw(self, draw_mode, material: OpenGLMaterial = None, selected_triangle = None):
 
         if self.limit_pitch is not None:
             if self.angle_pitch < self.limit_pitch[0]:
@@ -213,7 +219,7 @@ class Component(object3D):
         elif draw_mode == 1:
             self.object.draw_line()
         elif draw_mode == 2:
-            self.object.draw_fill()
+            self.object.draw_fill(selected_triangle)
         elif draw_mode == 3:
             self.object.draw_chess()
         elif draw_mode == 4:
@@ -240,5 +246,5 @@ class Component(object3D):
                 delta_z = length_z * (self.scale_z - 1) if length_z else 0
                 # Move the child to the new position after parent scaling with child origin as a reference
                 glTranslatef(-delta_x, -delta_y, -delta_z)
-            child.draw(draw_mode, material)
+            child.draw(draw_mode, material, selected_triangle)
             glPopMatrix()

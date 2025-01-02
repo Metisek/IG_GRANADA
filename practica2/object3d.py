@@ -16,6 +16,7 @@ class object3D(basic_object3D):
     def __init__(self):
         super().__init__()
         self.triangles = []
+        self.triangles_id = []
         self.normals = []
         self.vertex_normals = []
         self.texture_coords = []
@@ -33,11 +34,19 @@ class object3D(basic_object3D):
             glVertex3fv(self.vertices[triangle[0]])
         glEnd()
 
-    def draw_fill(self):
+    def draw_fill(self, selected_triangle_override = None):
         glBegin(GL_TRIANGLES)
         for i, triangle in enumerate(self.triangles):
-            if i == self.selected_triangle:
-                glColor3fv(common.YELLOW)
+            if len(self.triangles_id) != 0:
+                if selected_triangle_override is not None:
+                    if self.triangles_id[i] == selected_triangle_override:
+                        glColor3fv(common.YELLOW)
+                    else:
+                        glColor3fv(common.BLUE)
+                elif self.triangles_id[i] == self.selected_triangle:
+                    glColor3fv(common.YELLOW)
+                else:
+                    glColor3fv(common.BLUE)
             else:
                 glColor3fv(common.BLUE)
             for vertex_index in triangle:
@@ -191,14 +200,18 @@ class object3D(basic_object3D):
         glDisable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, 0)
 
-    def draw_with_ids(self):
+    def draw_with_ids(self, iteration = 0):
         glBegin(GL_TRIANGLES)
-        for i, triangle in enumerate(self.triangles):
+        i = iteration
+        for j, triangle in enumerate(self.triangles):
             color = self.int_to_color(i)
             glColor3fv(color)
+            self.triangles_id.insert(j, i)
+            i += 1
             for vertex_index in triangle:
                 glVertex3fv(self.vertices[vertex_index])
         glEnd()
+        return i
 
     def int_to_color(self, i):
         r = (i & 0xFF0000) >> 16
